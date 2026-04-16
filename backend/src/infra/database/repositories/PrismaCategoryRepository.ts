@@ -31,6 +31,10 @@ export class PrismaCategoryRepository implements ICategoryRepository {
     return toCategory(category)
   }
 
+  async createMany(data: Omit<Category, 'id' | 'createdAt'>[]): Promise<void> {
+    await prisma.category.createMany({ data })
+  }
+
   async update(id: string, userId: string, data: Partial<Pick<Category, 'name' | 'type'>>): Promise<Category> {
     const category = await prisma.category.update({ where: { id }, data })
     return toCategory(category)

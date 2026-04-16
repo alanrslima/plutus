@@ -3,9 +3,11 @@ import { z } from 'zod'
 import { RegisterUseCase } from '../../application/use-cases/auth/RegisterUseCase'
 import { LoginUseCase } from '../../application/use-cases/auth/LoginUseCase'
 import { PrismaUserRepository } from '../../infra/database/repositories/PrismaUserRepository'
+import { PrismaCategoryRepository } from '../../infra/database/repositories/PrismaCategoryRepository'
 
 const userRepo = new PrismaUserRepository()
-const registerUseCase = new RegisterUseCase(userRepo)
+const categoryRepo = new PrismaCategoryRepository()
+const registerUseCase = new RegisterUseCase(userRepo, categoryRepo)
 const loginUseCase = new LoginUseCase(userRepo)
 
 const registerSchema = z.object({
