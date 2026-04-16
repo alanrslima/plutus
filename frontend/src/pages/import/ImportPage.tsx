@@ -110,10 +110,10 @@ export default function ImportPage() {
         accountId,
         filename: selectedFile.name,
         fileType: previewResult.fileType,
-        transactions: previewResult.transactions.map(tx => ({
-          ...tx,
-          categoryId: categorySelections[tx.externalId] ?? null,
-        })),
+        transactions: previewResult.transactions.map(tx => {
+          const sel = categorySelections[tx.externalId]
+          return { ...tx, categoryId: sel && sel !== '__none__' ? sel : null }
+        }),
       })
       toast({
         title: 'Importação concluída',
@@ -310,11 +310,11 @@ export default function ImportPage() {
                       </td>
                       <td className="py-2">
                         <Select
-                          value={categorySelections[tx.externalId] ?? ''}
+                          value={categorySelections[tx.externalId] ?? '__none__'}
                           onValueChange={value =>
                             setCategorySelections(prev => ({
                               ...prev,
-                              [tx.externalId]: value === '' ? null : value,
+                              [tx.externalId]: value === '__none__' ? null : value,
                             }))
                           }
                         >
@@ -322,7 +322,7 @@ export default function ImportPage() {
                             <SelectValue placeholder="Sem categoria" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Sem categoria</SelectItem>
+                            <SelectItem value="__none__">Sem categoria</SelectItem>
                             {categories.map(cat => (
                               <SelectItem key={cat.id} value={cat.id} className="text-xs">
                                 {cat.name}

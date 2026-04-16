@@ -1,6 +1,9 @@
 import { IAIProvider } from '../../domain/services/IAIProvider'
 import { ParsedTransaction } from '../../domain/entities/ParsedTransaction'
 import { Category } from '../../domain/entities/Category'
+import { createLogger } from '../../infra/logger'
+
+const log = createLogger('CategorizationService')
 
 export class CategorizationService {
   constructor(
@@ -16,32 +19,45 @@ export class CategorizationService {
     transactions: ParsedTransaction[],
     categories: Category[],
   ): Promise<ParsedTransaction[]> {
-    // Nothing to do without categories or a real provider
     if (categories.length === 0 || !this.isEnabled) {
+      log.debug(
+        { isEnabled: this.isEnabled, categories: categories.length },
+        'Skipping categorization',
+      )
       return transactions
     }
+
+    log.info(
+      { provider: this.aiProvider.name, transactions: transactions.length, batchSize: this.batchSize },
+      'Starting AI categorization',
+    )
 
     const available = await this.aiProvider.isAvailable()
     if (!available) {
-      console.warn(`[CategorizationService] Provider "${this.aiProvider.name}" is not available — skipping`)
+      log.warn({ provider: this.aiProvider.name }, 'Provider unavailable — skipping categorization')
       return transactions
     }
 
-    // Only income/expense categories are useful for matching (no transfer)
     const categoryOptions = categories
       .filter((c) => c.type !== 'transfer')
       .map((c) => ({ id: c.id, name: c.name, type: c.type }))
 
     if (categoryOptions.length === 0) {
+      log.debug('No income/expense categories found — skipping categorization')
       return transactions
     }
 
-    // Map externalId → suggestedCategoryId after all batches
     const suggestions = new Map<number, string | null>()
+    const totalBatches = Math.ceil(transactions.length / this.batchSize)
 
-    // Process in batches
     for (let start = 0; start < transactions.length; start += this.batchSize) {
+      const batchIndex = Math.floor(start / this.batchSize) + 1
       const batch = transactions.slice(start, start + this.batchSize)
+
+      log.debug(
+        { batchIndex, totalBatches, batchSize: batch.length, startIndex: start },
+        'Processing batch',
+      )
 
       const toCategorizeBatch = batch.map((tx, i) => ({
         index: start + i,
@@ -52,22 +68,36 @@ export class CategorizationService {
 
       try {
         const results = await this.aiProvider.categorize(toCategorizeBatch, categoryOptions)
+
+        let matched = 0
         for (const result of results) {
           suggestions.set(result.index, result.categoryId)
+          if (result.categoryId) matched++
         }
+
+        log.debug(
+          { batchIndex, totalBatches, matched, total: batch.length },
+          'Batch processed',
+        )
       } catch (err) {
-        console.warn(`[CategorizationService] Batch ${start}–${start + batch.length - 1} failed:`, err)
-        // Continue with next batch
+        log.warn(
+          { batchIndex, totalBatches, error: (err as Error).message },
+          'Batch failed — continuing with remaining batches',
+        )
       }
     }
 
-    // Attach suggestions back to transactions
-    return transactions.map((tx, i) => {
+    const enriched = transactions.map((tx, i) => {
       const categoryId = suggestions.get(i)
-      if (categoryId !== undefined) {
-        return { ...tx, suggestedCategoryId: categoryId }
-      }
-      return tx
+      return categoryId !== undefined ? { ...tx, suggestedCategoryId: categoryId } : tx
     })
+
+    const totalMatched = [...suggestions.values()].filter(Boolean).length
+    log.info(
+      { provider: this.aiProvider.name, total: transactions.length, matched: totalMatched },
+      'AI categorization complete',
+    )
+
+    return enriched
   }
 }

@@ -9,6 +9,9 @@ import {
   buildUserPrompt,
   parseCategorizationResponse,
 } from './buildCategorizationPrompt'
+import { createLogger } from '../logger'
+
+const log = createLogger('OpenAIProvider')
 
 export class OpenAIProvider implements IAIProvider {
   readonly name = 'openai'
@@ -16,17 +19,32 @@ export class OpenAIProvider implements IAIProvider {
   constructor(
     private readonly apiKey: string,
     private readonly model: string,
-    private readonly timeoutMs: number
-  ) {}
+    private readonly timeoutMs: number,
+  ) {
+    log.info({ model }, 'OpenAIProvider initialized')
+  }
 
   async isAvailable(): Promise<boolean> {
-    return this.apiKey.length > 0
+    const available = this.apiKey.length > 0
+    log.debug({ available }, 'isAvailable check (key presence)')
+    return available
   }
 
   async categorize(
     transactions: TransactionToCategorize[],
-    categories: CategoryOption[]
+    categories: CategoryOption[],
   ): Promise<CategorizationSuggestion[]> {
+    const startMs = Date.now()
+    const systemPrompt = buildSystemPrompt()
+    const userPrompt = buildUserPrompt(transactions, categories)
+
+    log.debug(
+      { model: this.model, transactions: transactions.length, categories: categories.length },
+      'Sending categorization request',
+    )
+    log.debug({ systemPrompt }, 'System prompt')
+    log.debug({ userPrompt }, 'User prompt')
+
     try {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), this.timeoutMs)
@@ -41,8 +59,8 @@ export class OpenAIProvider implements IAIProvider {
         body: JSON.stringify({
           model: this.model,
           messages: [
-            { role: 'system', content: buildSystemPrompt() },
-            { role: 'user', content: buildUserPrompt(transactions, categories) },
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
           ],
           temperature: 0,
           response_format: { type: 'json_object' },
@@ -51,13 +69,30 @@ export class OpenAIProvider implements IAIProvider {
 
       clearTimeout(timer)
 
-      const data = await response.json() as { choices: Array<{ message: { content: string } }> }
-      const content: string = data.choices[0].message.content
+      const data = (await response.json()) as {
+        choices: Array<{ message: { content: string } }>
+        usage?: { prompt_tokens: number; completion_tokens: number }
+      }
+      const rawContent: string = data.choices[0].message.content
+      const durationMs = Date.now() - startMs
 
-      return parseCategorizationResponse(content, categories)
+      log.debug(
+        { rawContent, durationMs, usage: data.usage },
+        'Raw response from OpenAI',
+      )
+
+      const suggestions = parseCategorizationResponse(rawContent, categories)
+
+      log.debug(
+        { suggestions, durationMs, matched: suggestions.filter((s) => s.categoryId).length },
+        'Categorization complete',
+      )
+
+      return suggestions
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error(String(err))
-      console.warn('[OpenAIProvider]', error.message)
+      const durationMs = Date.now() - startMs
+      log.warn({ error: error.message, durationMs, model: this.model }, 'Categorization request failed')
       return []
     }
   }
