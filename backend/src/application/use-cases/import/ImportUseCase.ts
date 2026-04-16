@@ -22,13 +22,11 @@ export interface ParseAndCategorizeResult {
 }
 
 function isUniqueViolation(err: unknown): boolean {
-  return (
-    (typeof err === 'object' &&
-      err !== null &&
-      'code' in err &&
-      (err as { code: unknown }).code === 'P2002') ||
-    (err instanceof Error && err.message.includes('external_id'))
-  )
+  if (typeof err !== 'object' || err === null) return false
+  // Prisma unique constraint violation
+  if ('code' in err && (err as { code: unknown }).code === 'P2002') return true
+  if (err instanceof Error && err.message.includes('external_id')) return true
+  return false
 }
 
 export class ImportUseCase {

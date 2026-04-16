@@ -65,7 +65,7 @@ model Transaction {
   installment         Int?
   totalInstallments   Int?    @map("total_installments")
   parentTransactionId String? @map("parent_transaction_id")
-  externalId          String? @unique @map("external_id")
+  externalId          String? @map("external_id")
 
   user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   account            Account      @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Cascade)
@@ -74,6 +74,7 @@ model Transaction {
   parentTransaction  Transaction? @relation("InstallmentParent", fields: [parentTransactionId], references: [id])
   installments       Transaction[] @relation("InstallmentParent")
 
+  @@unique([userId, externalId])
   @@map("transactions")
 }
 
