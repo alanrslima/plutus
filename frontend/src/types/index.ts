@@ -56,3 +56,42 @@ export interface AccountSummary {
   accountName: string
   balance: number
 }
+
+// Import
+export type FileType = 'OFX' | 'CSV'
+export type ImportStatus = 'SUCCESS' | 'PARTIAL' | 'FAILED'
+
+export interface ParsedTransaction {
+  externalId: string
+  date: string
+  amount: number
+  type: 'income' | 'expense'
+  description: string
+  category?: string
+}
+
+export interface ImportHistory {
+  id: string
+  userId: string
+  accountId: string
+  accountName?: string
+  filename: string
+  fileType: FileType
+  status: ImportStatus
+  importedCount: number
+  skippedCount: number
+  errorMessage?: string | null
+  createdAt: string
+}
+
+export interface ImportPreviewResult {
+  transactions: ParsedTransaction[]
+  total: number
+  fileType: FileType
+}
+
+export interface ImportResult {
+  importedCount: number
+  skippedCount: number
+  importHistory: ImportHistory
+}

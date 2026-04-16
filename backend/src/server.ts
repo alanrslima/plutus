@@ -8,6 +8,7 @@ import accountsRoutes from './interfaces/routes/accounts.routes'
 import categoriesRoutes from './interfaces/routes/categories.routes'
 import transactionsRoutes from './interfaces/routes/transactions.routes'
 import reportsRoutes from './interfaces/routes/reports.routes'
+import importRoutes from './interfaces/routes/import.routes'
 import { errorHandler } from './interfaces/middlewares/errorHandler'
 
 const app = express()
@@ -23,6 +24,7 @@ app.use('/accounts', accountsRoutes)
 app.use('/categories', categoriesRoutes)
 app.use('/transactions', transactionsRoutes)
 app.use('/reports', reportsRoutes)
+app.use('/import', importRoutes)
 
 app.use(errorHandler)
 

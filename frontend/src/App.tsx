@@ -10,6 +10,7 @@ import AccountsPage from '@/pages/accounts/AccountsPage'
 import CategoriesPage from '@/pages/categories/CategoriesPage'
 import TransactionsPage from '@/pages/transactions/TransactionsPage'
 import ReportsPage from '@/pages/reports/ReportsPage'
+import ImportPage from '@/pages/import/ImportPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -32,6 +33,7 @@ function AppRoutes() {
         <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/transactions" element={<TransactionsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/import" element={<ImportPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

@@ -14,9 +14,10 @@ model User {
   passwordHash String   @map("password_hash")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  accounts     Account[]
-  categories   Category[]
-  transactions Transaction[]
+  accounts       Account[]
+  categories     Category[]
+  transactions   Transaction[]
+  importHistories ImportHistory[]
 
   @@map("users")
 }
@@ -28,9 +29,10 @@ model Account {
   balance   Decimal  @default(0) @db.Decimal(15, 2)
   createdAt DateTime @default(now()) @map("created_at")
 
-  user                    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions            Transaction[] @relation("AccountTransactions")
-  destinationTransactions Transaction[] @relation("DestinationAccountTransactions")
+  user                    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions            Transaction[]   @relation("AccountTransactions")
+  destinationTransactions Transaction[]   @relation("DestinationAccountTransactions")
+  importHistories         ImportHistory[]
 
   @@map("accounts")
 }
@@ -60,13 +62,14 @@ model Transaction {
   date                 DateTime
   createdAt            DateTime        @default(now()) @map("created_at")
 
-  installment        Int?
-  totalInstallments  Int?    @map("total_installments")
+  installment         Int?
+  totalInstallments   Int?    @map("total_installments")
   parentTransactionId String? @map("parent_transaction_id")
+  externalId          String? @unique @map("external_id")
 
   user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account            Account      @relation("AccountTransactions", fields: [accountId], references: [id])
-  destinationAccount Account?     @relation("DestinationAccountTransactions", fields: [destinationAccountId], references: [id])
+  account            Account      @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Cascade)
+  destinationAccount Account?     @relation("DestinationAccountTransactions", fields: [destinationAccountId], references: [id], onDelete: SetNull)
   category           Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   parentTransaction  Transaction? @relation("InstallmentParent", fields: [parentTransactionId], references: [id])
   installments       Transaction[] @relation("InstallmentParent")
@@ -74,8 +77,37 @@ model Transaction {
   @@map("transactions")
 }
 
+model ImportHistory {
+  id            String       @id @default(uuid())
+  userId        String       @map("user_id")
+  accountId     String       @map("account_id")
+  filename      String
+  fileType      FileType     @map("file_type")
+  status        ImportStatus
+  importedCount Int          @default(0) @map("imported_count")
+  skippedCount  Int          @default(0) @map("skipped_count")
+  errorMessage  String?      @map("error_message")
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("import_history")
+}
+
 enum TransactionType {
   income
   expense
   transfer
+}
+
+enum FileType {
+  OFX
+  CSV
+}
+
+enum ImportStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
 }
