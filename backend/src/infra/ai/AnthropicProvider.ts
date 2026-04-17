@@ -54,7 +54,7 @@ export class AnthropicProvider implements IAIProvider {
 
       const response = await client.messages.create({
         model: this.model,
-        max_tokens: 2048,
+        max_tokens: 1024,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
       })

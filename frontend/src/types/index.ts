@@ -102,3 +102,47 @@ export interface ImportResult {
   skippedCount: number
   importHistory: ImportHistory
 }
+
+// Goals
+export type GoalType = 'spending_limit' | 'savings_target'
+export type GoalStatus = 'active' | 'achieved' | 'cancelled'
+
+export interface Goal {
+  id: string
+  userId: string
+  categoryId?: string
+  title: string
+  targetAmount: number
+  currentAmount: number
+  deadline?: string
+  type: GoalType
+  status: GoalStatus
+  source: string
+  createdAt: string
+}
+
+// Copilot
+export type InsightType =
+  | 'overspending'
+  | 'recurring_detected'
+  | 'savings_opportunity'
+  | 'positive_trend'
+  | 'anomaly'
+  | 'budget_at_risk'
+
+export type ActionType = 'create_goal' | 'create_budget' | 'tag_subscription'
+
+export interface CopilotInsight {
+  id: string
+  userId: string
+  type: InsightType
+  title: string
+  body: string
+  data?: Record<string, unknown>
+  actionType?: ActionType
+  actionPayload?: Record<string, unknown>
+  actionTaken: boolean
+  dismissed: boolean
+  createdAt: string
+  expiresAt?: string
+}

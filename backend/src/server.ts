@@ -9,6 +9,8 @@ import categoriesRoutes from './interfaces/routes/categories.routes'
 import transactionsRoutes from './interfaces/routes/transactions.routes'
 import reportsRoutes from './interfaces/routes/reports.routes'
 import importRoutes from './interfaces/routes/import.routes'
+import copilotRoutes from './interfaces/routes/copilot.routes'
+import goalsRoutes from './interfaces/routes/goals.routes'
 import { errorHandler } from './interfaces/middlewares/errorHandler'
 
 const app = express()
@@ -25,6 +27,8 @@ app.use('/categories', categoriesRoutes)
 app.use('/transactions', transactionsRoutes)
 app.use('/reports', reportsRoutes)
 app.use('/import', importRoutes)
+app.use('/copilot', copilotRoutes)
+app.use('/goals', goalsRoutes)
 
 app.use(errorHandler)
 

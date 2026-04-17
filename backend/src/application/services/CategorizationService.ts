@@ -8,7 +8,7 @@ const log = createLogger('CategorizationService')
 export class CategorizationService {
   constructor(
     private aiProvider: IAIProvider,
-    private batchSize: number = 50,
+    private batchSize: number = 20,
   ) {}
 
   get isEnabled(): boolean {
@@ -64,6 +64,7 @@ export class CategorizationService {
         description: tx.description,
         amount: tx.amount,
         type: tx.type,
+        date: tx.date instanceof Date ? tx.date.toISOString() : String(tx.date),
       }))
 
       try {

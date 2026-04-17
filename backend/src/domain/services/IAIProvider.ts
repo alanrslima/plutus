@@ -3,6 +3,8 @@ export interface TransactionToCategorize {
   description: string
   amount: number
   type: 'income' | 'expense'
+  /** ISO date string, used to extract day-of-month/week signals */
+  date?: string
 }
 
 export interface CategoryOption {

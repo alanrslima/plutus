@@ -23,9 +23,6 @@ export function MonthSelector({ value, onChange }: MonthSelectorProps) {
   }
 
   function next() {
-    const now = new Date()
-    const isCurrentMonth = value.year === now.getFullYear() && value.month === now.getMonth() + 1
-    if (isCurrentMonth) return
     if (value.month === 12) {
       onChange({ year: value.year + 1, month: 1 })
     } else {
@@ -34,8 +31,6 @@ export function MonthSelector({ value, onChange }: MonthSelectorProps) {
   }
 
   const date = new Date(value.year, value.month - 1, 1)
-  const now = new Date()
-  const isCurrentMonth = value.year === now.getFullYear() && value.month === now.getMonth() + 1
   const label = format(date, 'MMMM yyyy', { locale: ptBR })
 
   return (
@@ -44,7 +39,7 @@ export function MonthSelector({ value, onChange }: MonthSelectorProps) {
         <ChevronLeft className="h-4 w-4" />
       </Button>
       <span className="w-36 text-center text-sm font-medium capitalize">{label}</span>
-      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={next} disabled={isCurrentMonth}>
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={next}>
         <ChevronRight className="h-4 w-4" />
       </Button>
     </div>

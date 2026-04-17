@@ -14,10 +14,12 @@ model User {
   passwordHash String   @map("password_hash")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  accounts       Account[]
-  categories     Category[]
-  transactions   Transaction[]
+  accounts        Account[]
+  categories      Category[]
+  transactions    Transaction[]
   importHistories ImportHistory[]
+  goals           Goal[]
+  copilotInsights CopilotInsight[]
 
   @@map("users")
 }
@@ -48,6 +50,7 @@ model Category {
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  goals        Goal[]
 
   @@map("categories")
 }
@@ -113,4 +116,68 @@ enum ImportStatus {
   SUCCESS
   PARTIAL
   FAILED
+}
+
+model Goal {
+  id            String     @id @default(uuid())
+  userId        String     @map("user_id")
+  categoryId    String?    @map("category_id")
+  title         String
+  targetAmount  Decimal    @db.Decimal(15, 2) @map("target_amount")
+  currentAmount Decimal    @default(0) @db.Decimal(15, 2) @map("current_amount")
+  deadline      DateTime?
+  type          GoalType
+  status        GoalStatus @default(active)
+  source        String     @default("manual")
+  createdAt     DateTime   @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@map("goals")
+}
+
+model CopilotInsight {
+  id            String      @id @default(uuid())
+  userId        String      @map("user_id")
+  type          InsightType
+  title         String
+  body          String
+  data          Json?
+  actionType    ActionType? @map("action_type")
+  actionPayload Json?       @map("action_payload")
+  actionTaken   Boolean     @default(false) @map("action_taken")
+  dismissed     Boolean     @default(false)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  expiresAt     DateTime?   @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("copilot_insights")
+}
+
+enum GoalType {
+  spending_limit
+  savings_target
+}
+
+enum GoalStatus {
+  active
+  achieved
+  cancelled
+}
+
+enum InsightType {
+  overspending
+  recurring_detected
+  savings_opportunity
+  positive_trend
+  anomaly
+  budget_at_risk
+}
+
+enum ActionType {
+  create_goal
+  create_budget
+  tag_subscription
 }
