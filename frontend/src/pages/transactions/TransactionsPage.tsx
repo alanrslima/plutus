@@ -343,14 +343,17 @@ export default function TransactionsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((t) => (
+                  {transactions.map((t) => {
+                    const isTransfer = !!t.destinationAccountId;
+                    const displayType = isTransfer ? "transfer" : t.type;
+                    return (
                     <tr
                       key={t.id}
                       className={`border-b last:border-0 hover:bg-accent/30 transition-colors ${t.referencedTransactionId ? 'border-l-2 border-l-primary/30' : ''}`}
                     >
                       <td className="py-2.5 pr-4">
-                        <Badge variant={typeVariant[t.type]}>
-                          {typeLabel[t.type]}
+                        <Badge variant={typeVariant[displayType]}>
+                          {typeLabel[displayType]}
                         </Badge>
                       </td>
                       <td className="py-2.5 pr-4 max-w-[180px]">
@@ -398,16 +401,24 @@ export default function TransactionsPage() {
                         )}
                       </td>
                       <td className="py-2.5 pr-4 text-muted-foreground hidden md:table-cell whitespace-nowrap">
-                        {accountName(t.accountId)}
+                        {isTransfer ? (
+                          <span className="flex items-center gap-1">
+                            <span>{accountName(t.accountId)}</span>
+                            <span className="text-xs">→</span>
+                            <span>{accountName(t.destinationAccountId!)}</span>
+                          </span>
+                        ) : (
+                          accountName(t.accountId)
+                        )}
                       </td>
                       <td className="py-2.5 pr-4 text-muted-foreground hidden lg:table-cell whitespace-nowrap">
                         {formatDate(t.date)}
                       </td>
                       <td className="py-2.5 pr-4 text-right whitespace-nowrap">
                         <span
-                          className={`font-semibold ${t.type === "income" ? "text-income" : t.type === "expense" ? "text-expense" : "text-transfer"}`}
+                          className={`font-semibold ${displayType === "income" ? "text-income" : displayType === "expense" ? "text-expense" : "text-transfer"}`}
                         >
-                          {t.type === "expense" ? "-" : "+"}
+                          {isTransfer ? "" : t.type === "expense" ? "-" : "+"}
                           {formatCurrency(t.amount)}
                         </span>
                       </td>
@@ -424,31 +435,36 @@ export default function TransactionsPage() {
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-70 p-1">
-                              <button
-                                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
-                                onClick={() => openEdit(t)}
-                              >
-                                <Pencil className="h-3.5 w-3.5" /> Editar
-                              </button>
-                              <button
-                                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
-                                onClick={() => openCreate(t)}
-                              >
-                                <GitBranch className="h-3.5 w-3.5" /> Criar
-                                transação filha
-                              </button>
+                              {!isTransfer && (
+                                <>
+                                  <button
+                                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+                                    onClick={() => openEdit(t)}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" /> Editar
+                                  </button>
+                                  <button
+                                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+                                    onClick={() => openCreate(t)}
+                                  >
+                                    <GitBranch className="h-3.5 w-3.5" /> Criar
+                                    transação filha
+                                  </button>
+                                </>
+                              )}
                               <button
                                 className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-destructive hover:bg-accent"
                                 onClick={() => handleDelete(t.id)}
                               >
-                                <Trash2 className="h-3.5 w-3.5" /> Excluir
+                                <Trash2 className="h-3.5 w-3.5" /> Excluir{isTransfer ? " transferência" : ""}
                               </button>
                             </PopoverContent>
                           </Popover>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

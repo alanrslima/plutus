@@ -61,9 +61,16 @@ export class PrismaTransactionRepository implements ITransactionRepository {
     const transactions = await prisma.transaction.findMany({
       where: {
         userId,
+        // Only show the expense leg of transfers (income leg is the internal mirror)
+        NOT: { AND: [{ type: 'income' }, { destinationAccountId: { not: null } }] },
+        // type filter: 'transfer' means expense leg with a destinationAccountId
+        ...(filters?.type === 'transfer'
+          ? { destinationAccountId: { not: null } }
+          : filters?.type
+            ? { type: filters.type, destinationAccountId: null }
+            : {}),
         ...(filters?.accountId ? { accountId: filters.accountId } : {}),
         ...(filters?.categoryId ? { categoryId: filters.categoryId } : {}),
-        ...(filters?.type ? { type: filters.type } : {}),
         ...(filters?.startDate || filters?.endDate ? {
           date: {
             ...(filters?.startDate ? { gte: filters.startDate } : {}),
@@ -75,6 +82,21 @@ export class PrismaTransactionRepository implements ITransactionRepository {
       orderBy: { date: 'desc' },
     })
     return transactions.map(toTransaction)
+  }
+
+  async findTransferPair(t: Transaction, userId: string): Promise<Transaction | null> {
+    const pairedType = t.type === 'expense' ? 'income' : 'expense'
+    const paired = await prisma.transaction.findFirst({
+      where: {
+        userId,
+        type: pairedType,
+        accountId: t.destinationAccountId,
+        destinationAccountId: t.accountId,
+        date: t.date,
+      },
+      include: categoryInclude,
+    })
+    return paired ? toTransaction(paired) : null
   }
 
   async createMany(data: Omit<Transaction, 'id' | 'createdAt'>[]): Promise<Transaction[]> {
@@ -111,6 +133,7 @@ export class PrismaTransactionRepository implements ITransactionRepository {
       FROM transactions
       WHERE user_id = ${userId}
         AND EXTRACT(YEAR FROM date) = ${year}
+        AND destination_account_id IS NULL
         ${monthFilter}
       GROUP BY TO_CHAR(date, 'YYYY-MM')
       ORDER BY month ASC
@@ -136,6 +159,7 @@ export class PrismaTransactionRepository implements ITransactionRepository {
       JOIN categories c ON t.category_id = c.id
       WHERE t.user_id = ${userId}
         AND t.type = 'expense'
+        AND t.destination_account_id IS NULL
         ${startFilter}
         ${endFilter}
       GROUP BY c.id, c.name

@@ -48,15 +48,17 @@ const typeVariant: Record<TransactionType, "income" | "expense" | "transfer"> =
   };
 
 function AmountCell({ t }: { t: Transaction }) {
+  const isTransfer = !!t.destinationAccountId;
+  const displayType = isTransfer ? "transfer" : t.type;
   const cls =
-    t.type === "income"
+    displayType === "income"
       ? "text-income"
-      : t.type === "expense"
+      : displayType === "expense"
         ? "text-expense"
         : "text-transfer";
   return (
     <span className={`text-sm font-semibold ${cls}`}>
-      {t.type === "expense" ? "-" : "+"}
+      {isTransfer ? "" : t.type === "expense" ? "-" : "+"}
       {formatCurrency(t.amount)}
     </span>
   );
@@ -327,14 +329,16 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentTransactions.map((t) => (
+                  {recentTransactions.map((t) => {
+                    const displayType = t.destinationAccountId ? "transfer" : t.type;
+                    return (
                     <tr
                       key={t.id}
                       className="border-b last:border-0 hover:bg-accent/30 transition-colors"
                     >
                       <td className="py-2.5 pr-4">
-                        <Badge variant={typeVariant[t.type]}>
-                          {typeLabel[t.type]}
+                        <Badge variant={typeVariant[displayType]}>
+                          {typeLabel[displayType]}
                         </Badge>
                       </td>
                       <td
@@ -353,7 +357,8 @@ export default function DashboardPage() {
                         <AmountCell t={t} />
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

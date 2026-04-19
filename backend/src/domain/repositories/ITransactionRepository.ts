@@ -12,6 +12,7 @@ export interface TransactionFilters {
 export interface ITransactionRepository {
   findById(id: string, userId: string): Promise<Transaction | null>
   findAllByUser(userId: string, filters?: TransactionFilters): Promise<Transaction[]>
+  findTransferPair(t: Transaction, userId: string): Promise<Transaction | null>
   createMany(data: Omit<Transaction, 'id' | 'createdAt'>[]): Promise<Transaction[]>
   update(id: string, userId: string, data: Partial<Omit<Transaction, 'id' | 'userId' | 'createdAt'>>): Promise<Transaction>
   delete(id: string, userId: string): Promise<void>

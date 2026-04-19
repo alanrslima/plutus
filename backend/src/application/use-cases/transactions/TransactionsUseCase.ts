@@ -134,9 +134,17 @@ export class TransactionsUseCase {
     const existing = await this.transactionRepository.findById(id, userId)
     if (!existing) throw new Error('Transaction not found')
 
-    // Reverse balance effect
     const delta = existing.type === 'income' ? -existing.amount : existing.amount
     await this.accountRepository.updateBalance(existing.accountId, delta)
+
+    if (existing.destinationAccountId) {
+      const paired = await this.transactionRepository.findTransferPair(existing, userId)
+      if (paired) {
+        const pairedDelta = paired.type === 'income' ? -paired.amount : paired.amount
+        await this.accountRepository.updateBalance(paired.accountId, pairedDelta)
+        await this.transactionRepository.delete(paired.id, userId)
+      }
+    }
 
     await this.transactionRepository.delete(id, userId)
   }
