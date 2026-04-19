@@ -39,6 +39,26 @@ export class OllamaProvider implements IAIProvider {
     }
   }
 
+  async complete(systemPrompt: string, userPrompt: string, onToken?: (token: string) => void): Promise<string> {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs)
+    const response = await fetch(`${this.baseUrl}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: this.model,
+        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+        stream: false,
+      }),
+    })
+    clearTimeout(timer)
+    const data = await response.json() as { message: { content: string } }
+    const text = data.message.content
+    onToken?.(text)
+    return text
+  }
+
   async categorize(
     transactions: TransactionToCategorize[],
     categories: CategoryOption[],

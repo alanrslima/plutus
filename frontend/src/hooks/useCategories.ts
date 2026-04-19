@@ -5,7 +5,10 @@ import { Category, TransactionType } from '../types'
 export function useCategories(type?: TransactionType) {
   return useQuery<Category[]>({
     queryKey: ['categories', type],
-    queryFn: async () => (await api.get('/categories', { params: type ? { type } : {} })).data,
+    queryFn: async () => {
+      const data: Category[] = (await api.get('/categories', { params: type ? { type } : {} })).data
+      return data.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }))
+    },
   })
 }
 

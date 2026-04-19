@@ -8,6 +8,10 @@ import {
 export class NullProvider implements IAIProvider {
   readonly name = 'none'
 
+  async complete(_systemPrompt: string, _userPrompt: string, _onToken?: (token: string) => void): Promise<string> {
+    throw new Error('No AI provider configured')
+  }
+
   async categorize(
     _transactions: TransactionToCategorize[],
     _categories: CategoryOption[]

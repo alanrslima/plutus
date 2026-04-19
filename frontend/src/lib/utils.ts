@@ -10,5 +10,7 @@ export function formatCurrency(value: number): string {
 }
 
 export function formatDate(date: string | Date): string {
-  return new Intl.DateTimeFormat('pt-BR').format(new Date(date))
+  const s = typeof date === 'string' ? date : date.toISOString()
+  const [y, m, d] = s.slice(0, 10).split('-').map(Number)
+  return new Intl.DateTimeFormat('pt-BR').format(new Date(y, m - 1, d))
 }

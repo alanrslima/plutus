@@ -76,8 +76,8 @@ const typeVariant: Record<TransactionType, "income" | "expense" | "transfer"> =
 function getMonthBounds(year: number, month: number) {
   const d = new Date(year, month - 1, 1);
   return {
-    startDate: startOfMonth(d).toISOString(),
-    endDate: endOfMonth(d).toISOString(),
+    startDate: format(startOfMonth(d), "yyyy-MM-dd"),
+    endDate: format(endOfMonth(d), "yyyy-MM-dd"),
   };
 }
 
@@ -162,7 +162,7 @@ export default function TransactionsPage() {
       type: t.type,
       amount: t.amount,
       description: t.description,
-      date: format(new Date(t.date), "yyyy-MM-dd"),
+      date: t.date.slice(0, 10),
       totalInstallments: undefined,
     });
     setDialogOpen(true);

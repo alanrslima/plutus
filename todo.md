@@ -12,4 +12,9 @@ Aba de contas
 
 Aba de transações
 
-- Ajustar a opção de filtro (Não esta funcionando)
+- Criar um componente com boa UX e susabilidade para seleção de mês e mostrar as transações do mês selecionado.
+- Incluir informação da categoria de em cada transação
+
+Categorias
+
+- Incluir opção de ícone e cor para cada categoria

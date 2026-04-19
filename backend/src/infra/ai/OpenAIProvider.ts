@@ -30,6 +30,27 @@ export class OpenAIProvider implements IAIProvider {
     return available
   }
 
+  async complete(systemPrompt: string, userPrompt: string, onToken?: (token: string) => void): Promise<string> {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs)
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: this.model,
+        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+        temperature: 0,
+        max_tokens: 2048,
+      }),
+    })
+    clearTimeout(timer)
+    const data = await response.json() as { choices: Array<{ message: { content: string } }> }
+    const text = data.choices[0].message.content
+    onToken?.(text)
+    return text
+  }
+
   async categorize(
     transactions: TransactionToCategorize[],
     categories: CategoryOption[],

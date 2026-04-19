@@ -23,6 +23,11 @@ export interface IAIProvider {
     transactions: TransactionToCategorize[],
     categories: CategoryOption[]
   ): Promise<CategorizationSuggestion[]>
+  complete(
+    systemPrompt: string,
+    userPrompt: string,
+    onToken?: (token: string) => void,
+  ): Promise<string>
   isAvailable(): Promise<boolean>
   readonly name: string
 }

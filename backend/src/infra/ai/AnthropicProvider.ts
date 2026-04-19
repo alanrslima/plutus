@@ -31,6 +31,24 @@ export class AnthropicProvider implements IAIProvider {
     return available
   }
 
+  async complete(systemPrompt: string, userPrompt: string, onToken?: (token: string) => void): Promise<string> {
+    const client = new Anthropic({ apiKey: this.apiKey, timeout: this.timeoutMs })
+    let fullText = ''
+    const stream = await client.messages.stream({
+      model: this.model,
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    })
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        fullText += event.delta.text
+        onToken?.(event.delta.text)
+      }
+    }
+    return fullText
+  }
+
   async categorize(
     transactions: TransactionToCategorize[],
     categories: CategoryOption[],

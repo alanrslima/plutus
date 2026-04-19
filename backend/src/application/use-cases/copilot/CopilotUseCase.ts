@@ -1,10 +1,10 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { ICopilotInsightRepository } from '../../../domain/repositories/ICopilotInsightRepository'
 import { IGoalRepository } from '../../../domain/repositories/IGoalRepository'
 import { FinancialContextBuilder } from '../../services/FinancialContextBuilder'
 import { RecurringDetector } from '../../services/RecurringDetector'
 import { ActionExecutor } from '../../services/ActionExecutor'
 import { GoalUseCase } from '../goals/GoalUseCase'
+import { AIProviderFactory } from '../../../infra/ai/AIProviderFactory'
 import { buildCopilotSystemPrompt, buildCopilotUserPrompt } from '../../../infra/ai/buildCopilotPrompt'
 import { parseCopilotResponse } from '../../../infra/ai/parseCopilotResponse'
 import { CopilotInsight } from '../../../domain/entities/CopilotInsight'
@@ -63,37 +63,16 @@ export class CopilotUseCase {
         throw new AppError('insufficient_data', 422)
       }
 
-      // Validate Anthropic key
-      const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
-      if (!apiKey) throw new AppError('AI provider not configured', 503)
-
-      const model = process.env.ANTHROPIC_MODEL_COPILOT ?? 'claude-sonnet-4-6'
-      const client = new Anthropic({ apiKey })
+      const provider = AIProviderFactory.create()
+      if (provider.name === 'none') throw new AppError('AI provider not configured', 503)
+      if (!(await provider.isAvailable())) throw new AppError('AI provider unavailable', 503)
 
       const systemPrompt = buildCopilotSystemPrompt()
       const userPrompt = buildCopilotUserPrompt(ctx)
 
-      log.debug({ model }, 'Starting copilot stream')
+      log.debug({ provider: provider.name }, 'Starting copilot stream')
 
-      let fullText = ''
-
-      const stream = await client.messages.stream({
-        model,
-        max_tokens: 2048,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      })
-
-      for await (const event of stream) {
-        if (
-          event.type === 'content_block_delta' &&
-          event.delta.type === 'text_delta'
-        ) {
-          const token = event.delta.text
-          fullText += token
-          onToken(token)
-        }
-      }
+      const fullText = await provider.complete(systemPrompt, userPrompt, onToken)
 
       log.debug({ fullText }, 'Copilot stream complete')
 
