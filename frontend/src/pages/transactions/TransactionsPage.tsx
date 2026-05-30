@@ -478,22 +478,20 @@ export default function TransactionsPage() {
                             </PopoverTrigger>
                             <PopoverContent className="w-70 p-1">
                               {!isTransfer && (
-                                <>
-                                  <button
-                                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
-                                    onClick={() => openEdit(t)}
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" /> Editar
-                                  </button>
-                                  <button
-                                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
-                                    onClick={() => openCreate(t)}
-                                  >
-                                    <GitBranch className="h-3.5 w-3.5" /> Criar
-                                    transação filha
-                                  </button>
-                                </>
+                                <button
+                                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+                                  onClick={() => openEdit(t)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" /> Editar
+                                </button>
                               )}
+                              <button
+                                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+                                onClick={() => openCreate(t)}
+                              >
+                                <GitBranch className="h-3.5 w-3.5" /> Criar
+                                transação filha
+                              </button>
                               <button
                                 className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-destructive hover:bg-accent"
                                 onClick={() => handleDelete(t.id)}
