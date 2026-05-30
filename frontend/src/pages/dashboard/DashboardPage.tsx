@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Wallet, ArrowLeftRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, ArrowLeftRight, ChevronLeft, ChevronRight, PieChart as PieChartIcon, BarChart2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,7 @@ function AmountCell({ t }: { t: Transaction }) {
 
 export default function DashboardPage() {
   const [viewMode, setViewMode] = useState<"overview" | "month">("overview");
+  const [categoryChartType, setCategoryChartType] = useState<"pie" | "bar">("pie");
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const activeYear =
@@ -102,6 +103,12 @@ export default function DashboardPage() {
   const pieData = categorySummary.slice(0, 7).map((c, i) => ({
     name: c.categoryName,
     value: c.total,
+    color: COLORS[i % COLORS.length],
+  }));
+
+  const barCategoryData = categorySummary.map((c, i) => ({
+    name: c.categoryName,
+    Despesas: c.total,
     color: COLORS[i % COLORS.length],
   }));
 
@@ -250,46 +257,97 @@ export default function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Despesas por Categoria</CardTitle>
+            <div className="flex rounded-md border border-border overflow-hidden">
+              <button
+                onClick={() => setCategoryChartType("pie")}
+                className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors ${categoryChartType === "pie" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
+                title="Gráfico de pizza"
+              >
+                <PieChartIcon className="h-3.5 w-3.5" />
+                Pizza
+              </button>
+              <button
+                onClick={() => setCategoryChartType("bar")}
+                className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors ${categoryChartType === "bar" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
+                title="Gráfico de barras"
+              >
+                <BarChart2 className="h-3.5 w-3.5" />
+                Barras
+              </button>
+            </div>
           </CardHeader>
           <CardContent>
-            {pieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    dataKey="value"
-                    paddingAngle={3}
-                  >
-                    {pieData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Legend
-                    formatter={(v) => (
-                      <span style={{ color: "#94a3b8", fontSize: 12 }}>
-                        {v}
-                      </span>
-                    )}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1e293b",
-
-                      border: "none",
-                      borderRadius: 8,
-                    }}
-                    formatter={(v: number) => formatCurrency(v)}
-                    itemStyle={{ color: "#fff" }}
-                    labelStyle={{ color: "#aaa" }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            {categorySummary.length > 0 ? (
+              categoryChartType === "pie" ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={90}
+                      dataKey="value"
+                      paddingAngle={3}
+                    >
+                      {pieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Legend
+                      formatter={(v) => (
+                        <span style={{ color: "#94a3b8", fontSize: 12 }}>
+                          {v}
+                        </span>
+                      )}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#1e293b",
+                        border: "none",
+                        borderRadius: 8,
+                      }}
+                      formatter={(v: number) => formatCurrency(v)}
+                      itemStyle={{ color: "#fff" }}
+                      labelStyle={{ color: "#aaa" }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={barCategoryData} margin={{ bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fill: "#94a3b8", fontSize: 11 }}
+                      angle={-35}
+                      textAnchor="end"
+                      interval={0}
+                    />
+                    <YAxis
+                      tick={{ fill: "#94a3b8", fontSize: 12 }}
+                      tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#1e293b",
+                        border: "none",
+                        borderRadius: 8,
+                      }}
+                      formatter={(v: number) => formatCurrency(v)}
+                      itemStyle={{ color: "#fff" }}
+                      labelStyle={{ color: "#aaa" }}
+                    />
+                    <Bar dataKey="Despesas" radius={[4, 4, 0, 0]}>
+                      {barCategoryData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )
             ) : (
               <div className="flex h-[250px] items-center justify-center text-muted-foreground text-sm">
                 Nenhuma despesa categorizada
