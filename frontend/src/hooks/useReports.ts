@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../services/api'
-import { MonthlySummary, CategorySummary, AccountSummary, CategoryTrendItem } from '../types'
+import { MonthlySummary, CategorySummary, AccountSummary, CategoryTrendItem, DailySummary } from '../types'
 
 export function useMonthlySummary(year: number, month?: number) {
   return useQuery<MonthlySummary[]>({
@@ -27,5 +27,12 @@ export function useCategoryTrend(year: number, type: 'income' | 'expense') {
   return useQuery<CategoryTrendItem[]>({
     queryKey: ['reports', 'category-trend', year, type],
     queryFn: async () => (await api.get('/reports/summary/category-trend', { params: { year, type } })).data,
+  })
+}
+
+export function useDailySummary(year: number, month: number) {
+  return useQuery<DailySummary[]>({
+    queryKey: ['reports', 'daily', year, month],
+    queryFn: async () => (await api.get('/reports/summary/daily', { params: { year, month } })).data,
   })
 }

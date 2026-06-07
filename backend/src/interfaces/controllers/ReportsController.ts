@@ -43,4 +43,13 @@ export class ReportsController {
       res.json(result)
     } catch (err) { next(err) }
   }
+
+  async dailySummary(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear()
+      const month = req.query.month ? parseInt(req.query.month as string) : new Date().getMonth() + 1
+      const result = await useCase.getDailySummary(req.userId!, year, month)
+      res.json(result)
+    } catch (err) { next(err) }
+  }
 }

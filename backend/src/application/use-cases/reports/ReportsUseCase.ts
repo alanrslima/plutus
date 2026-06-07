@@ -18,4 +18,8 @@ export class ReportsUseCase {
   async getAccountSummary(userId: string) {
     return this.transactionRepository.getAccountSummary(userId)
   }
+
+  async getDailySummary(userId: string, year: number, month: number) {
+    return this.transactionRepository.getDailySummary(userId, year, month)
+  }
 }

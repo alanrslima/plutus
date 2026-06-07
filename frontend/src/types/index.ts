@@ -73,6 +73,12 @@ export interface CategoryTrendItem {
   total: number
 }
 
+export interface DailySummary {
+  day: string
+  totalIncome: number
+  totalExpense: number
+}
+
 // Import
 export type FileType = 'OFX' | 'CSV'
 export type ImportStatus = 'SUCCESS' | 'PARTIAL' | 'FAILED'

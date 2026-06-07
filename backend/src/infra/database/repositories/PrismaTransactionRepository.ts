@@ -198,6 +198,27 @@ export class PrismaTransactionRepository implements ITransactionRepository {
     }))
   }
 
+  async getDailySummary(userId: string, year: number, month: number): Promise<{ day: string; totalIncome: number; totalExpense: number }[]> {
+    const result = await prisma.$queryRaw<{ day: string; totalIncome: number; totalExpense: number }[]>`
+      SELECT
+        TO_CHAR(date, 'YYYY-MM-DD') as day,
+        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as "totalIncome",
+        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as "totalExpense"
+      FROM transactions
+      WHERE user_id = ${userId}
+        AND EXTRACT(YEAR FROM date) = ${year}
+        AND EXTRACT(MONTH FROM date) = ${month}
+        AND destination_account_id IS NULL
+      GROUP BY TO_CHAR(date, 'YYYY-MM-DD')
+      ORDER BY day ASC
+    `
+    return result.map(r => ({
+      day: r.day,
+      totalIncome: Number(r.totalIncome),
+      totalExpense: Number(r.totalExpense),
+    }))
+  }
+
   async getAccountSummary(userId: string): Promise<{ accountId: string; accountName: string; balance: number }[]> {
     const accounts = await prisma.account.findMany({
       where: { userId },

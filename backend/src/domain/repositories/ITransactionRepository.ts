@@ -21,4 +21,5 @@ export interface ITransactionRepository {
   getCategorySummary(userId: string, startDate?: Date, endDate?: Date): Promise<{ categoryId: string; categoryName: string; total: number }[]>
   getCategoryTrend(userId: string, year: number, type: 'income' | 'expense'): Promise<{ categoryId: string; categoryName: string; month: string; total: number }[]>
   getAccountSummary(userId: string): Promise<{ accountId: string; accountName: string; balance: number }[]>
+  getDailySummary(userId: string, year: number, month: number): Promise<{ day: string; totalIncome: number; totalExpense: number }[]>
 }

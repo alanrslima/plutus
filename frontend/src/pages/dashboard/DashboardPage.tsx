@@ -1,13 +1,10 @@
 import { useState } from "react";
 import { TrendingUp, TrendingDown, Wallet, ArrowLeftRight, ChevronLeft, ChevronRight, PieChart as PieChartIcon, BarChart2 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useAccounts } from "@/hooks/useAccounts";
-import { useTransactions } from "@/hooks/useTransactions";
-import { useMonthlySummary, useCategorySummary } from "@/hooks/useReports";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { useMonthlySummary, useCategorySummary, useDailySummary } from "@/hooks/useReports";
+import { formatCurrency } from "@/lib/utils";
 import {
   BarChart,
   Bar,
@@ -20,10 +17,11 @@ import {
   Pie,
   Cell,
   Legend,
+  LineChart,
+  Line,
 } from "recharts";
-import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, getDaysInMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Transaction, TransactionType } from "@/types";
 
 const COLORS = [
   "#6366f1",
@@ -48,61 +46,23 @@ const COLORS = [
   "#db2777",
 ];
 
-const typeLabel: Record<TransactionType, string> = {
-  income: "Receita",
-  expense: "Despesa",
-  transfer: "Transferência",
-};
-const typeVariant: Record<TransactionType, "income" | "expense" | "transfer"> =
-  {
-    income: "income",
-    expense: "expense",
-    transfer: "transfer",
-  };
-
-function AmountCell({ t }: { t: Transaction }) {
-  const isTransfer = !!t.destinationAccountId;
-  const displayType = isTransfer ? "transfer" : t.type;
-  const cls =
-    displayType === "income"
-      ? "text-income"
-      : displayType === "expense"
-        ? "text-expense"
-        : "text-transfer";
-  return (
-    <span className={`text-sm font-semibold ${cls}`}>
-      {isTransfer ? "" : t.type === "expense" ? "-" : "+"}
-      {formatCurrency(t.amount)}
-    </span>
-  );
-}
-
 export default function DashboardPage() {
-  const [viewMode, setViewMode] = useState<"overview" | "month">("overview");
   const [categoryChartType, setCategoryChartType] = useState<"pie" | "bar">("pie");
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const activeYear =
-    viewMode === "month" ? selectedDate.getFullYear() : new Date().getFullYear();
+  const activeYear = selectedDate.getFullYear();
+  const activeMonth = selectedDate.getMonth() + 1;
   const monthStart = format(startOfMonth(selectedDate), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(selectedDate), "yyyy-MM-dd");
   const selectedMonthKey = format(selectedDate, "yyyy-MM");
 
   const { data: accounts = [] } = useAccounts();
-  const { data: transactions = [] } = useTransactions(
-    viewMode === "month" ? { startDate: monthStart, endDate: monthEnd } : undefined
-  );
   const { data: monthlySummary = [] } = useMonthlySummary(activeYear);
-  const { data: categorySummary = [] } = useCategorySummary(
-    viewMode === "month" ? monthStart : undefined,
-    viewMode === "month" ? monthEnd : undefined
-  );
+  const { data: categorySummary = [] } = useCategorySummary(monthStart, monthEnd);
+  const { data: dailySummary = [] } = useDailySummary(activeYear, activeMonth);
 
   const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
-  const activeSummaryKey =
-    viewMode === "month" ? selectedMonthKey : format(new Date(), "yyyy-MM");
-  const currentSummary = monthlySummary.find((s) => s.month === activeSummaryKey);
-  const recentTransactions = transactions.slice(0, 5);
+  const currentSummary = monthlySummary.find((s) => s.month === selectedMonthKey);
 
   const chartData = monthlySummary.map((s) => {
     const [y, m] = s.month.split("-").map(Number);
@@ -125,48 +85,42 @@ export default function DashboardPage() {
     color: COLORS[i % COLORS.length],
   }));
 
+  const daysInMonth = getDaysInMonth(selectedDate);
+  const dailyChartData = Array.from({ length: daysInMonth }, (_, i) => {
+    const day = i + 1;
+    const dayStr = format(new Date(activeYear, activeMonth - 1, day), "yyyy-MM-dd");
+    const found = dailySummary.find((d) => d.day === dayStr);
+    return {
+      day: String(day),
+      Receitas: found?.totalIncome ?? 0,
+      Despesas: found?.totalExpense ?? 0,
+    };
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-border overflow-hidden">
-            <button
-              onClick={() => setViewMode("overview")}
-              className={`px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "overview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
-            >
-              Visão Geral
-            </button>
-            <button
-              onClick={() => setViewMode("month")}
-              className={`px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "month" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
-            >
-              Por Mês
-            </button>
-          </div>
-          {viewMode === "month" && (
-            <div className="flex items-center gap-1 rounded-lg border border-border px-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setSelectedDate((d) => subMonths(d, 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="min-w-[120px] text-center text-sm font-medium capitalize">
-                {format(selectedDate, "MMMM yyyy", { locale: ptBR })}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setSelectedDate((d) => addMonths(d, 1))}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+        <div className="flex items-center gap-1 rounded-lg border border-border px-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setSelectedDate((d) => subMonths(d, 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="min-w-[120px] text-center text-sm font-medium capitalize">
+            {format(selectedDate, "MMMM yyyy", { locale: ptBR })}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setSelectedDate((d) => addMonths(d, 1))}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -192,7 +146,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Receitas{viewMode === "month" ? ` de ${format(selectedDate, "MMM", { locale: ptBR })}` : " do Mês"}
+              Receitas de {format(selectedDate, "MMM", { locale: ptBR })}
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-income" />
           </CardHeader>
@@ -206,7 +160,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Despesas{viewMode === "month" ? ` de ${format(selectedDate, "MMM", { locale: ptBR })}` : " do Mês"}
+              Despesas de {format(selectedDate, "MMM", { locale: ptBR })}
             </CardTitle>
             <TrendingDown className="h-4 w-4 text-expense" />
           </CardHeader>
@@ -220,7 +174,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Balanço{viewMode === "month" ? ` de ${format(selectedDate, "MMM", { locale: ptBR })}` : " do Mês"}
+              Balanço de {format(selectedDate, "MMM", { locale: ptBR })}
             </CardTitle>
             <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -370,70 +324,61 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Recent transactions */}
+      {/* Daily cash flow */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Últimas Transações</CardTitle>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/transactions">Ver mais</Link>
-          </Button>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Fluxo de Caixa Diário — {format(selectedDate, "MMMM yyyy", { locale: ptBR })}
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {recentTransactions.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhuma transação ainda
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="pb-2 pr-4 font-medium">Tipo</th>
-                    <th className="pb-2 pr-4 font-medium">Descrição</th>
-                    <th className="pb-2 pr-4 font-medium hidden sm:table-cell">
-                      Categoria
-                    </th>
-                    <th className="pb-2 pr-4 font-medium hidden md:table-cell">
-                      Data
-                    </th>
-                    <th className="pb-2 font-medium text-right">Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentTransactions.map((t) => {
-                    const displayType = t.destinationAccountId ? "transfer" : t.type;
-                    return (
-                    <tr
-                      key={t.id}
-                      className="border-b last:border-0 hover:bg-accent/30 transition-colors"
-                    >
-                      <td className="py-2.5 pr-4">
-                        <Badge variant={typeVariant[displayType]}>
-                          {typeLabel[displayType]}
-                        </Badge>
-                      </td>
-                      <td
-                        className="py-2.5 pr-4 max-w-[180px] truncate font-medium"
-                        title={t.description ?? "—"}
-                      >
-                        {t.description ?? "—"}
-                      </td>
-                      <td className="py-2.5 pr-4 text-muted-foreground hidden sm:table-cell">
-                        {t.categoryName ?? "—"}
-                      </td>
-                      <td className="py-2.5 pr-4 text-muted-foreground hidden md:table-cell whitespace-nowrap">
-                        {formatDate(t.date)}
-                      </td>
-                      <td className="py-2.5 text-right">
-                        <AmountCell t={t} />
-                      </td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={dailyChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <XAxis
+                dataKey="day"
+                tick={{ fill: "#94a3b8", fontSize: 12 }}
+                interval={4}
+              />
+              <YAxis
+                tick={{ fill: "#94a3b8", fontSize: 12 }}
+                tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
+                width={56}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#1e293b",
+                  border: "none",
+                  borderRadius: 8,
+                }}
+                formatter={(v: number) => formatCurrency(v)}
+                itemStyle={{ color: "#fff" }}
+                labelStyle={{ color: "#94a3b8" }}
+                labelFormatter={(label) => `Dia ${label}`}
+              />
+              <Legend
+                formatter={(v) => (
+                  <span style={{ color: "#94a3b8", fontSize: 12 }}>{v}</span>
+                )}
+              />
+              <Line
+                type="monotone"
+                dataKey="Receitas"
+                stroke="#10b981"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="Despesas"
+                stroke="#ef4444"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </CardContent>
       </Card>
     </div>
