@@ -135,6 +135,28 @@ export class TransactionsUseCase {
     const existing = await this.transactionRepository.findById(id, userId)
     if (!existing) throw new AppError('Transaction not found', 404)
 
+    // If this transaction belongs to an installment group, delete all related installments
+    if (existing.totalInstallments || existing.parentTransactionId) {
+      const rootId = existing.parentTransactionId ?? existing.id
+
+      let root = existing.parentTransactionId
+        ? await this.transactionRepository.findById(rootId, userId)
+        : existing
+      if (!root) throw new AppError('Parent transaction not found', 404)
+
+      const children = await this.transactionRepository.findByParentId(rootId, userId)
+      const allInstallments = [root, ...children]
+
+      for (const t of allInstallments) {
+        const delta = t.type === 'income' ? -t.amount : t.amount
+        await this.accountRepository.updateBalance(t.accountId, delta)
+      }
+
+      await this.transactionRepository.deleteByParentId(rootId, userId)
+      await this.transactionRepository.delete(rootId, userId)
+      return
+    }
+
     const delta = existing.type === 'income' ? -existing.amount : existing.amount
     await this.accountRepository.updateBalance(existing.accountId, delta)
 

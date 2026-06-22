@@ -16,6 +16,7 @@ export interface ITransactionRepository {
   createMany(data: Omit<Transaction, 'id' | 'createdAt'>[]): Promise<Transaction[]>
   update(id: string, userId: string, data: Partial<Omit<Transaction, 'id' | 'userId' | 'createdAt'>>): Promise<Transaction>
   delete(id: string, userId: string): Promise<void>
+  findByParentId(parentTransactionId: string, userId: string): Promise<Transaction[]>
   deleteByParentId(parentTransactionId: string, userId: string): Promise<void>
   getMonthlySummary(userId: string, year: number, month?: number): Promise<{ month: string; totalIncome: number; totalExpense: number; balance: number }[]>
   getCategorySummary(userId: string, startDate?: Date, endDate?: Date): Promise<{ categoryId: string; categoryName: string; total: number }[]>

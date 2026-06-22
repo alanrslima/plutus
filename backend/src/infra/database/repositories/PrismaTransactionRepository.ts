@@ -120,6 +120,14 @@ export class PrismaTransactionRepository implements ITransactionRepository {
     await prisma.transaction.delete({ where: { id } })
   }
 
+  async findByParentId(parentTransactionId: string, userId: string): Promise<Transaction[]> {
+    const transactions = await prisma.transaction.findMany({
+      where: { parentTransactionId, userId },
+      include: categoryInclude,
+    })
+    return transactions.map(toTransaction)
+  }
+
   async deleteByParentId(parentTransactionId: string, userId: string): Promise<void> {
     await prisma.transaction.deleteMany({ where: { parentTransactionId, userId } })
   }
