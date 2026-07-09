@@ -21,6 +21,7 @@ model User {
   goals           Goal[]
   copilotInsights CopilotInsight[]
   loans           Loan[]
+  budgets         Budget[]
 
   @@map("users")
 }
@@ -53,6 +54,7 @@ model Category {
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   goals        Goal[]
+  budgets      Budget[]
 
   @@map("categories")
 }
@@ -231,4 +233,20 @@ enum LoanStatus {
   active
   paid
   cancelled
+}
+
+model Budget {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  categoryId String   @map("category_id")
+  amount     Decimal  @db.Decimal(15, 2)
+  month      Int
+  year       Int
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, month, year])
+  @@map("budgets")
 }

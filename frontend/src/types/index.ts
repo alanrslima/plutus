@@ -153,6 +153,23 @@ export interface Goal {
   createdAt: string
 }
 
+// Budgets
+export interface Budget {
+  id: string
+  userId: string
+  categoryId: string
+  categoryName: string
+  categoryIcon?: string
+  categoryColor?: string
+  amount: number
+  month: number
+  year: number
+  spent: number
+  remaining: number
+  percentage: number
+  createdAt: string
+}
+
 // Loans
 export type LoanStatus = 'active' | 'paid' | 'cancelled'
 

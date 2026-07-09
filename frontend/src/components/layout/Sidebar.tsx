@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Wallet, Tag, ArrowLeftRight, BarChart3, Upload, LogOut, BrainCircuit, UserCog, Landmark } from 'lucide-react'
+import { LayoutDashboard, Wallet, Tag, ArrowLeftRight, BarChart3, Upload, LogOut, BrainCircuit, UserCog, Landmark, PiggyBank } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,7 @@ const navItems = [
   { to: '/categories', icon: Tag, label: 'Categorias' },
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transações' },
   { to: '/reports', icon: BarChart3, label: 'Relatórios' },
+  { to: '/budgets', icon: PiggyBank, label: 'Orçamentos' },
   { to: '/loans', icon: Landmark, label: 'Empréstimos' },
   { to: '/import', icon: Upload, label: 'Importar' },
   { to: '/copilot', icon: BrainCircuit, label: 'Copilot' },

@@ -157,16 +157,29 @@ export default function LoansPage() {
           {loans.map(loan => (
             <Card
               key={loan.id}
-              className="relative cursor-pointer transition-colors hover:border-primary/50"
+              className="cursor-pointer transition-colors hover:border-primary/50"
               onClick={() => navigate(`/loans/${loan.id}`)}
             >
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
+                  <div className="min-w-0">
                     <CardTitle className="text-base">{loan.name}</CardTitle>
                     {loan.lender && <p className="text-xs text-muted-foreground">{loan.lender}</p>}
                   </div>
-                  <Badge variant={STATUS_VARIANT[loan.status]}>{STATUS_LABEL[loan.status]}</Badge>
+                  <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                    <Badge variant={STATUS_VARIANT[loan.status]}>{STATUS_LABEL[loan.status]}</Badge>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(loan)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => setDeleteTarget(loan)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -195,19 +208,6 @@ export default function LoansPage() {
                       style={{ width: `${loan.installmentsCount > 0 ? (loan.paidCount / loan.installmentsCount) * 100 : 0}%` }}
                     />
                   </div>
-                </div>
-                <div className="absolute top-3 right-3 flex gap-1" onClick={e => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(loan)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => setDeleteTarget(loan)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
                 </div>
               </CardContent>
             </Card>
