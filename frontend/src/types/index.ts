@@ -153,6 +153,43 @@ export interface Goal {
   createdAt: string
 }
 
+// Loans
+export type LoanStatus = 'active' | 'paid' | 'cancelled'
+
+export interface LoanInstallment {
+  id: string
+  loanId: string
+  number: number
+  dueDate: string
+  amount: number
+  paid: boolean
+  paidAt?: string
+}
+
+export interface Loan {
+  id: string
+  userId: string
+  name: string
+  lender?: string
+  amountReceived: number
+  totalAmount: number
+  installmentsCount: number
+  startDate: string
+  firstDueDate: string
+  status: LoanStatus
+  notes?: string
+  createdAt: string
+  installments: LoanInstallment[]
+  totalInterest: number
+  interestPercentage: number
+  monthlyInterestRate: number
+  annualInterestRate: number
+  paidCount: number
+  paidAmount: number
+  remainingCount: number
+  remainingAmount: number
+}
+
 // Copilot
 export type InsightType =
   | 'overspending'

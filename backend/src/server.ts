@@ -11,6 +11,7 @@ import reportsRoutes from './interfaces/routes/reports.routes'
 import importRoutes from './interfaces/routes/import.routes'
 import copilotRoutes from './interfaces/routes/copilot.routes'
 import goalsRoutes from './interfaces/routes/goals.routes'
+import loansRoutes from './interfaces/routes/loans.routes'
 import { errorHandler } from './interfaces/middlewares/errorHandler'
 import { requestLogger } from './interfaces/middlewares/requestLogger'
 
@@ -35,6 +36,7 @@ app.use('/reports', reportsRoutes)
 app.use('/import', importRoutes)
 app.use('/copilot', copilotRoutes)
 app.use('/goals', goalsRoutes)
+app.use('/loans', loansRoutes)
 
 app.use(errorHandler)
 

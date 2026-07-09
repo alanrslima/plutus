@@ -20,6 +20,7 @@ model User {
   importHistories ImportHistory[]
   goals           Goal[]
   copilotInsights CopilotInsight[]
+  loans           Loan[]
 
   @@map("users")
 }
@@ -189,4 +190,45 @@ enum ActionType {
   create_goal
   create_budget
   tag_subscription
+}
+
+model Loan {
+  id             String     @id @default(uuid())
+  userId         String     @map("user_id")
+  name           String
+  lender         String?
+  amountReceived Decimal    @db.Decimal(15, 2) @map("amount_received")
+  totalAmount    Decimal    @db.Decimal(15, 2) @map("total_amount")
+  installmentsCount Int     @map("installments_count")
+  startDate      DateTime   @map("start_date")
+  firstDueDate   DateTime   @map("first_due_date")
+  status         LoanStatus @default(active)
+  notes          String?
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  installments LoanInstallment[]
+
+  @@map("loans")
+}
+
+model LoanInstallment {
+  id       String    @id @default(uuid())
+  loanId   String    @map("loan_id")
+  number   Int
+  dueDate  DateTime  @map("due_date")
+  amount   Decimal   @db.Decimal(15, 2)
+  paid     Boolean   @default(false)
+  paidAt   DateTime? @map("paid_at")
+
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@unique([loanId, number])
+  @@map("loan_installments")
+}
+
+enum LoanStatus {
+  active
+  paid
+  cancelled
 }
