@@ -2,9 +2,11 @@ import { Response, NextFunction } from 'express'
 import { AuthRequest } from '../middlewares/authMiddleware'
 import { ReportsUseCase } from '../../application/use-cases/reports/ReportsUseCase'
 import { PrismaTransactionRepository } from '../../infra/database/repositories/PrismaTransactionRepository'
+import { PrismaAccountRepository } from '../../infra/database/repositories/PrismaAccountRepository'
 
 const transactionRepo = new PrismaTransactionRepository()
-const useCase = new ReportsUseCase(transactionRepo)
+const accountRepo = new PrismaAccountRepository()
+const useCase = new ReportsUseCase(transactionRepo, accountRepo)
 
 export class ReportsController {
   async monthlySummary(req: AuthRequest, res: Response, next: NextFunction) {
@@ -49,6 +51,22 @@ export class ReportsController {
       const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear()
       const month = req.query.month ? parseInt(req.query.month as string) : new Date().getMonth() + 1
       const result = await useCase.getDailySummary(req.userId!, year, month)
+      res.json(result)
+    } catch (err) { next(err) }
+  }
+
+  async cumulativeSummary(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date()
+      const result = await useCase.getCumulativeSummary(req.userId!, endDate)
+      res.json(result)
+    } catch (err) { next(err) }
+  }
+
+  async balanceAsOfDate(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const date = req.query.date ? new Date(req.query.date as string) : new Date()
+      const result = await useCase.getBalanceAsOfDate(req.userId!, date)
       res.json(result)
     } catch (err) { next(err) }
   }

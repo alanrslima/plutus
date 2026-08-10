@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../services/api'
-import { MonthlySummary, CategorySummary, AccountSummary, CategoryTrendItem, DailySummary } from '../types'
+import { MonthlySummary, CategorySummary, AccountSummary, CategoryTrendItem, DailySummary, CumulativeSummary, BalanceAsOfDate } from '../types'
 
 export function useMonthlySummary(year: number, month?: number) {
   return useQuery<MonthlySummary[]>({
@@ -34,5 +34,19 @@ export function useDailySummary(year: number, month: number) {
   return useQuery<DailySummary[]>({
     queryKey: ['reports', 'daily', year, month],
     queryFn: async () => (await api.get('/reports/summary/daily', { params: { year, month } })).data,
+  })
+}
+
+export function useCumulativeSummary(endDate: string) {
+  return useQuery<CumulativeSummary>({
+    queryKey: ['reports', 'cumulative', endDate],
+    queryFn: async () => (await api.get('/reports/summary/cumulative', { params: { endDate } })).data,
+  })
+}
+
+export function useBalanceAsOfDate(date: string) {
+  return useQuery<BalanceAsOfDate>({
+    queryKey: ['reports', 'balance', date],
+    queryFn: async () => (await api.get('/reports/summary/balance', { params: { date } })).data,
   })
 }

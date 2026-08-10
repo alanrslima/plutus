@@ -3,7 +3,7 @@ import { TrendingUp, TrendingDown, Wallet, ArrowLeftRight, ChevronLeft, ChevronR
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAccounts } from "@/hooks/useAccounts";
-import { useMonthlySummary, useCategorySummary, useDailySummary } from "@/hooks/useReports";
+import { useMonthlySummary, useCategorySummary, useDailySummary, useCumulativeSummary, useBalanceAsOfDate } from "@/hooks/useReports";
 import { formatCurrency } from "@/lib/utils";
 import {
   BarChart,
@@ -60,6 +60,8 @@ export default function DashboardPage() {
   const { data: monthlySummary = [] } = useMonthlySummary(activeYear);
   const { data: categorySummary = [] } = useCategorySummary(monthStart, monthEnd);
   const { data: dailySummary = [] } = useDailySummary(activeYear, activeMonth);
+  const { data: cumulativeSummary } = useCumulativeSummary(monthEnd);
+  const { data: balanceAsOfDate } = useBalanceAsOfDate(monthEnd);
 
   const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
   const currentSummary = monthlySummary.find((s) => s.month === selectedMonthKey);
@@ -140,6 +142,9 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">
               {accounts.length} conta(s)
             </p>
+            <p className="text-xs text-muted-foreground">
+              Saldo em {format(selectedDate, "MMM/yy", { locale: ptBR })}: {formatCurrency(balanceAsOfDate?.balance ?? 0)}
+            </p>
           </CardContent>
         </Card>
 
@@ -154,6 +159,9 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold text-income">
               {formatCurrency(currentSummary?.totalIncome ?? 0)}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Acumulado até {format(selectedDate, "MMM/yy", { locale: ptBR })}: {formatCurrency(cumulativeSummary?.totalIncome ?? 0)}
+            </p>
           </CardContent>
         </Card>
 
@@ -168,6 +176,9 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold text-expense">
               {formatCurrency(currentSummary?.totalExpense ?? 0)}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Acumulado até {format(selectedDate, "MMM/yy", { locale: ptBR })}: {formatCurrency(cumulativeSummary?.totalExpense ?? 0)}
+            </p>
           </CardContent>
         </Card>
 
@@ -184,6 +195,11 @@ export default function DashboardPage() {
             >
               {formatCurrency(currentSummary?.balance ?? 0)}
             </div>
+            <p
+              className={`text-xs ${(cumulativeSummary?.balance ?? 0) >= 0 ? "text-income" : "text-expense"}`}
+            >
+              Acumulado até {format(selectedDate, "MMM/yy", { locale: ptBR })}: {formatCurrency(cumulativeSummary?.balance ?? 0)}
+            </p>
           </CardContent>
         </Card>
       </div>

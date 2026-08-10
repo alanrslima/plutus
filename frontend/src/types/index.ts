@@ -79,6 +79,16 @@ export interface DailySummary {
   totalExpense: number
 }
 
+export interface CumulativeSummary {
+  totalIncome: number
+  totalExpense: number
+  balance: number
+}
+
+export interface BalanceAsOfDate {
+  balance: number
+}
+
 // Import
 export type FileType = 'OFX' | 'CSV'
 export type ImportStatus = 'SUCCESS' | 'PARTIAL' | 'FAILED'

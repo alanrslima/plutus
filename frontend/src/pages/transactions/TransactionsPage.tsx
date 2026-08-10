@@ -6,6 +6,8 @@ import {
   Pencil,
   Trash2,
   GitBranch,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -96,6 +98,7 @@ export default function TransactionsPage() {
   const [referencedParent, setReferencedParent] = useState<Transaction | null>(
     null,
   );
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const { startDate, endDate } = getMonthBounds(
     selectedMonth.year,
@@ -210,11 +213,188 @@ export default function TransactionsPage() {
     }
   }
 
+  function toggleExpand(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   const filteredCategories = categories.filter(
     (c) => !selectedType || c.type === selectedType,
   );
   const accountName = (id: string) =>
     accounts.find((a) => a.id === id)?.name ?? id;
+
+  // Build parent/child tree from the flat list: a transaction is nested
+  // under its parent only if the parent is also present in the current view.
+  const transactionIds = new Set(transactions.map((t) => t.id));
+  const childrenByParent = new Map<string, Transaction[]>();
+  transactions.forEach((t) => {
+    if (t.referencedTransactionId && transactionIds.has(t.referencedTransactionId)) {
+      const siblings = childrenByParent.get(t.referencedTransactionId) ?? [];
+      siblings.push(t);
+      childrenByParent.set(t.referencedTransactionId, siblings);
+    }
+  });
+  const rootTransactions = transactions.filter(
+    (t) => !(t.referencedTransactionId && transactionIds.has(t.referencedTransactionId)),
+  );
+
+  function renderTransactionRows(t: Transaction, depth: number): JSX.Element[] {
+    const isTransfer = !!t.destinationAccountId;
+    const displayType = isTransfer ? "transfer" : t.type;
+    const children = childrenByParent.get(t.id) ?? [];
+    const isExpanded = expandedIds.has(t.id);
+    // Parent exists but isn't in the current filtered view (e.g. different month)
+    const isOrphanChild = depth === 0 && !!t.referencedTransactionId;
+
+    const row = (
+      <tr
+        key={t.id}
+        className={`border-b last:border-0 hover:bg-accent/30 transition-colors ${t.referencedTransactionId ? 'border-l-2 border-l-primary/30' : ''}`}
+      >
+        <td className="py-2.5 pr-4">
+          <Badge variant={typeVariant[displayType]}>
+            {typeLabel[displayType]}
+          </Badge>
+        </td>
+        <td className="py-2.5 pr-4 max-w-[180px]">
+          <div
+            className="flex flex-col gap-0.5"
+            style={depth > 0 ? { paddingLeft: depth * 36 } : undefined}
+          >
+            <span className="flex items-center gap-1.5 font-medium truncate" title={t.description ?? '—'}>
+              {children.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => toggleExpand(t.id)}
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              )}
+              <span className="truncate">{t.description ?? '—'}</span>
+              {t.totalInstallments && (
+                <span className="text-xs text-muted-foreground font-normal shrink-0">
+                  {t.installment}/{t.totalInstallments}x
+                </span>
+              )}
+            </span>
+            {children.length > 0 && (
+              <span className="text-xs text-muted-foreground pl-5">
+                {children.length}{" "}
+                {children.length === 1 ? "transação filha" : "transações filhas"}
+              </span>
+            )}
+            {children.length === 0 && t.hasChildren && (
+              <span className="flex items-center gap-1 text-xs text-primary/70">
+                <GitBranch className="h-2.5 w-2.5 shrink-0" />
+                <span>Tem transações filhas (fora do período)</span>
+              </span>
+            )}
+            {isOrphanChild && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+                <span className="shrink-0">↳</span>
+                <span className="truncate" title={t.referencedTransaction?.description ?? 'Transação pai'}>
+                  {t.referencedTransaction?.description ?? 'Transação pai'}
+                </span>
+              </span>
+            )}
+          </div>
+        </td>
+        <td className="py-2.5 pr-4 hidden sm:table-cell">
+          {t.categoryName ? (
+            <span
+              className="text-xs px-2 py-0.5 rounded-full border font-medium"
+              style={{
+                borderColor: t.categoryColor ?? undefined,
+                color: t.categoryColor ?? undefined,
+                backgroundColor: t.categoryColor
+                  ? `${t.categoryColor}18`
+                  : undefined,
+              }}
+            >
+              {t.categoryName}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </td>
+        <td className="py-2.5 pr-4 text-muted-foreground hidden md:table-cell whitespace-nowrap">
+          {isTransfer ? (
+            <span className="flex items-center gap-1">
+              <span>{accountName(t.accountId)}</span>
+              <span className="text-xs">→</span>
+              <span>{accountName(t.destinationAccountId!)}</span>
+            </span>
+          ) : (
+            accountName(t.accountId)
+          )}
+        </td>
+        <td className="py-2.5 pr-4 text-muted-foreground hidden lg:table-cell whitespace-nowrap">
+          {formatDate(t.date)}
+        </td>
+        <td className="py-2.5 pr-4 text-right whitespace-nowrap">
+          <span
+            className={`font-semibold ${displayType === "income" ? "text-income" : displayType === "expense" ? "text-expense" : "text-transfer"}`}
+          >
+            {isTransfer ? "" : t.type === "expense" ? "-" : "+"}
+            {formatCurrency(t.amount)}
+          </span>
+        </td>
+        <td className="py-2.5">
+          <div className="flex justify-end">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-70 p-1">
+                {!isTransfer && (
+                  <button
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+                    onClick={() => openEdit(t)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Editar
+                  </button>
+                )}
+                <button
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+                  onClick={() => openCreate(t)}
+                >
+                  <GitBranch className="h-3.5 w-3.5" /> Criar
+                  transação filha
+                </button>
+                <button
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-destructive hover:bg-accent"
+                  onClick={() => handleDelete(t.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Excluir{isTransfer ? " transferência" : ""}
+                </button>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </td>
+      </tr>
+    );
+
+    const childRows = isExpanded
+      ? children.flatMap((c) => renderTransactionRows(c, depth + 1))
+      : [];
+    return [row, ...childRows];
+  }
 
   const totalIncome = transactions
     .filter((t) => t.type === "income" && !t.destinationAccountId)
@@ -385,126 +565,7 @@ export default function TransactionsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((t) => {
-                    const isTransfer = !!t.destinationAccountId;
-                    const displayType = isTransfer ? "transfer" : t.type;
-                    return (
-                    <tr
-                      key={t.id}
-                      className={`border-b last:border-0 hover:bg-accent/30 transition-colors ${t.referencedTransactionId ? 'border-l-2 border-l-primary/30' : ''}`}
-                    >
-                      <td className="py-2.5 pr-4">
-                        <Badge variant={typeVariant[displayType]}>
-                          {typeLabel[displayType]}
-                        </Badge>
-                      </td>
-                      <td className="py-2.5 pr-4 max-w-[180px]">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="flex items-center gap-1.5 font-medium truncate" title={t.description ?? '—'}>
-                            <span className="truncate">{t.description ?? '—'}</span>
-                            {t.totalInstallments && (
-                              <span className="text-xs text-muted-foreground font-normal shrink-0">
-                                {t.installment}/{t.totalInstallments}x
-                              </span>
-                            )}
-                          </span>
-                          {t.hasChildren && (
-                            <span className="flex items-center gap-1 text-xs text-primary/70">
-                              <GitBranch className="h-2.5 w-2.5 shrink-0" />
-                              <span>Tem transações filhas</span>
-                            </span>
-                          )}
-                          {t.referencedTransactionId && (
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground truncate">
-                              <span className="shrink-0">↳</span>
-                              <span className="truncate" title={t.referencedTransaction?.description ?? 'Transação pai'}>
-                                {t.referencedTransaction?.description ?? 'Transação pai'}
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-2.5 pr-4 hidden sm:table-cell">
-                        {t.categoryName ? (
-                          <span
-                            className="text-xs px-2 py-0.5 rounded-full border font-medium"
-                            style={{
-                              borderColor: t.categoryColor ?? undefined,
-                              color: t.categoryColor ?? undefined,
-                              backgroundColor: t.categoryColor
-                                ? `${t.categoryColor}18`
-                                : undefined,
-                            }}
-                          >
-                            {t.categoryName}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 pr-4 text-muted-foreground hidden md:table-cell whitespace-nowrap">
-                        {isTransfer ? (
-                          <span className="flex items-center gap-1">
-                            <span>{accountName(t.accountId)}</span>
-                            <span className="text-xs">→</span>
-                            <span>{accountName(t.destinationAccountId!)}</span>
-                          </span>
-                        ) : (
-                          accountName(t.accountId)
-                        )}
-                      </td>
-                      <td className="py-2.5 pr-4 text-muted-foreground hidden lg:table-cell whitespace-nowrap">
-                        {formatDate(t.date)}
-                      </td>
-                      <td className="py-2.5 pr-4 text-right whitespace-nowrap">
-                        <span
-                          className={`font-semibold ${displayType === "income" ? "text-income" : displayType === "expense" ? "text-expense" : "text-transfer"}`}
-                        >
-                          {isTransfer ? "" : t.type === "expense" ? "-" : "+"}
-                          {formatCurrency(t.amount)}
-                        </span>
-                      </td>
-                      <td className="py-2.5">
-                        <div className="flex justify-end">
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-70 p-1">
-                              {!isTransfer && (
-                                <button
-                                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
-                                  onClick={() => openEdit(t)}
-                                >
-                                  <Pencil className="h-3.5 w-3.5" /> Editar
-                                </button>
-                              )}
-                              <button
-                                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
-                                onClick={() => openCreate(t)}
-                              >
-                                <GitBranch className="h-3.5 w-3.5" /> Criar
-                                transação filha
-                              </button>
-                              <button
-                                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-destructive hover:bg-accent"
-                                onClick={() => handleDelete(t.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" /> Excluir{isTransfer ? " transferência" : ""}
-                              </button>
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      </td>
-                    </tr>
-                    );
-                  })}
+                  {rootTransactions.flatMap((t) => renderTransactionRows(t, 0))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-border">

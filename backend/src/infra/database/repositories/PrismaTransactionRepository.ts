@@ -227,6 +227,34 @@ export class PrismaTransactionRepository implements ITransactionRepository {
     }))
   }
 
+  async getCumulativeSummary(userId: string, endDate: Date): Promise<{ totalIncome: number; totalExpense: number; balance: number }> {
+    const [result] = await prisma.$queryRaw<{ totalIncome: number; totalExpense: number }[]>`
+      SELECT
+        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as "totalIncome",
+        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as "totalExpense"
+      FROM transactions
+      WHERE user_id = ${userId}
+        AND date <= ${endDate}
+        AND destination_account_id IS NULL
+    `
+    const totalIncome = Number(result.totalIncome)
+    const totalExpense = Number(result.totalExpense)
+    return { totalIncome, totalExpense, balance: totalIncome - totalExpense }
+  }
+
+  async getSummarySince(userId: string, afterDate: Date): Promise<{ totalIncome: number; totalExpense: number }> {
+    const [result] = await prisma.$queryRaw<{ totalIncome: number; totalExpense: number }[]>`
+      SELECT
+        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as "totalIncome",
+        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as "totalExpense"
+      FROM transactions
+      WHERE user_id = ${userId}
+        AND date > ${afterDate}
+        AND destination_account_id IS NULL
+    `
+    return { totalIncome: Number(result.totalIncome), totalExpense: Number(result.totalExpense) }
+  }
+
   async getAccountSummary(userId: string): Promise<{ accountId: string; accountName: string; balance: number }[]> {
     const accounts = await prisma.account.findMany({
       where: { userId },
