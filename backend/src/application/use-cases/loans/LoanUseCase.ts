@@ -2,7 +2,12 @@ import { ILoanRepository } from '../../../domain/repositories/ILoanRepository'
 import { Loan, LoanStatus } from '../../../domain/entities/Loan'
 import { LoanInstallment } from '../../../domain/entities/LoanInstallment'
 import { AppError } from '../../errors/AppError'
-import { generateInstallments, calculateLoanStats, LoanStats } from '../../services/LoanCalculator'
+import {
+  generateInstallments,
+  calculateLoanStats,
+  calculateInstallmentInterest,
+  LoanStats,
+} from '../../services/LoanCalculator'
 
 export type CreateLoanInput = {
   name: string
@@ -22,7 +27,9 @@ export type UpdateLoanInput = {
   status?: LoanStatus
 }
 
-export type LoanDetail = Loan & { installments: LoanInstallment[] } & LoanStats
+export type LoanInstallmentDetail = LoanInstallment & { interest: number; principal: number }
+
+export type LoanDetail = Loan & { installments: LoanInstallmentDetail[] } & LoanStats
 
 export class LoanUseCase {
   constructor(private loanRepo: ILoanRepository) {}
@@ -112,6 +119,11 @@ export class LoanUseCase {
   private async assembleDetail(loan: Loan, installments?: LoanInstallment[]): Promise<LoanDetail> {
     const loanInstallments = installments ?? (await this.loanRepo.findInstallmentsByLoanId(loan.id))
     const stats = calculateLoanStats(loan.amountReceived, loanInstallments)
-    return { ...loan, installments: loanInstallments, ...stats }
+    const installmentsWithInterest = calculateInstallmentInterest(
+      loan.amountReceived,
+      loanInstallments,
+      stats.monthlyInterestRate,
+    )
+    return { ...loan, installments: installmentsWithInterest, ...stats }
   }
 }

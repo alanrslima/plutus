@@ -189,6 +189,8 @@ export interface LoanInstallment {
   number: number
   dueDate: string
   amount: number
+  interest: number
+  principal: number
   paid: boolean
   paidAt?: string
 }

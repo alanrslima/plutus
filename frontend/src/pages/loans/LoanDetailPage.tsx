@@ -134,6 +134,8 @@ export default function LoanDetailPage() {
                     <th className="px-6 py-2 font-medium">Nº</th>
                     <th className="px-6 py-2 font-medium">Vencimento</th>
                     <th className="px-6 py-2 font-medium">Valor</th>
+                    <th className="px-6 py-2 font-medium">Capital</th>
+                    <th className="px-6 py-2 font-medium">Juros</th>
                     <th className="px-6 py-2 font-medium">Status</th>
                     <th className="px-6 py-2 font-medium text-right">Ação</th>
                   </tr>
@@ -146,6 +148,8 @@ export default function LoanDetailPage() {
                         <td className="px-6 py-2.5">{installment.number}</td>
                         <td className="px-6 py-2.5">{formatDate(installment.dueDate)}</td>
                         <td className="px-6 py-2.5 font-medium">{formatCurrency(installment.amount)}</td>
+                        <td className="px-6 py-2.5">{formatCurrency(installment.principal)}</td>
+                        <td className="px-6 py-2.5 text-expense">{formatCurrency(installment.interest)}</td>
                         <td className="px-6 py-2.5">
                           {installment.paid ? (
                             <Badge variant="income" className="gap-1"><CheckCircle2 className="h-3 w-3" /> Paga</Badge>

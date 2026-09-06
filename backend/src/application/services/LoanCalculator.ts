@@ -45,6 +45,25 @@ export function calculateAnnualInterestRate(monthlyRate: number): number {
   return Math.pow(1 + monthlyRate, 12) - 1
 }
 
+/**
+ * Splits each installment into its interest and principal portions using the
+ * declining-balance method: interest_k = balance_k * monthlyRate, principal_k = amount_k - interest_k.
+ */
+export function calculateInstallmentInterest<T extends { amount: number }>(
+  amountReceived: number,
+  installments: T[],
+  monthlyInterestRate: number,
+): (T & { interest: number; principal: number })[] {
+  let balance = amountReceived
+
+  return installments.map(installment => {
+    const interest = Math.max(0, Math.round(balance * monthlyInterestRate * 100) / 100)
+    const principal = installment.amount - interest
+    balance -= principal
+    return { ...installment, interest, principal }
+  })
+}
+
 export type LoanStats = {
   totalInterest: number
   interestPercentage: number
