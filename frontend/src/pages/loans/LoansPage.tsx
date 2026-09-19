@@ -124,6 +124,73 @@ export default function LoansPage() {
     }
   }
 
+  function renderLoanCard(loan: Loan) {
+    return (
+      <Card
+        key={loan.id}
+        className="cursor-pointer transition-colors hover:border-primary/50"
+        onClick={() => navigate(`/loans/${loan.id}`)}
+      >
+        <CardHeader className="pb-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <CardTitle className="text-base">{loan.name}</CardTitle>
+              {loan.lender && <p className="text-xs text-muted-foreground">{loan.lender}</p>}
+            </div>
+            <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+              <Badge variant={STATUS_VARIANT[loan.status]}>{STATUS_LABEL[loan.status]}</Badge>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(loan)}>
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                onClick={() => setDeleteTarget(loan)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Recebido</span>
+            <span className="font-medium">{formatCurrency(loan.amountReceived)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Total a pagar</span>
+            <span className="font-medium">{formatCurrency(loan.totalAmount)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Juros</span>
+            <span className="font-medium text-expense">
+              {formatCurrency(loan.totalInterest)} ({loan.interestPercentage.toFixed(1)}%)
+            </span>
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{loan.paidCount}/{loan.installmentsCount} parcelas</span>
+              <span>{(loan.monthlyInterestRate * 100).toFixed(2)}% a.m.</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${loan.installmentsCount > 0 ? (loan.paidCount / loan.installmentsCount) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const openLoans = loans.filter(l => l.status === 'active')
+  // quitados first, cancelados (também encerrados) ao final
+  const closedLoans = [
+    ...loans.filter(l => l.status === 'paid'),
+    ...loans.filter(l => l.status === 'cancelled'),
+  ]
   const totalInterestActive = loans.filter(l => l.status === 'active').reduce((sum, l) => sum + l.totalInterest, 0)
 
   return (
@@ -153,65 +220,32 @@ export default function LoansPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {loans.map(loan => (
-            <Card
-              key={loan.id}
-              className="cursor-pointer transition-colors hover:border-primary/50"
-              onClick={() => navigate(`/loans/${loan.id}`)}
-            >
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <CardTitle className="text-base">{loan.name}</CardTitle>
-                    {loan.lender && <p className="text-xs text-muted-foreground">{loan.lender}</p>}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-                    <Badge variant={STATUS_VARIANT[loan.status]}>{STATUS_LABEL[loan.status]}</Badge>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(loan)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteTarget(loan)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Recebido</span>
-                  <span className="font-medium">{formatCurrency(loan.amountReceived)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total a pagar</span>
-                  <span className="font-medium">{formatCurrency(loan.totalAmount)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Juros</span>
-                  <span className="font-medium text-expense">
-                    {formatCurrency(loan.totalInterest)} ({loan.interestPercentage.toFixed(1)}%)
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{loan.paidCount}/{loan.installmentsCount} parcelas</span>
-                    <span>{(loan.monthlyInterestRate * 100).toFixed(2)}% a.m.</span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${loan.installmentsCount > 0 ? (loan.paidCount / loan.installmentsCount) * 100 : 0}%` }}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="space-y-8">
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">
+              Em aberto <span className="text-sm font-normal text-muted-foreground">({openLoans.length})</span>
+            </h2>
+            {openLoans.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum empréstimo em aberto.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {openLoans.map(renderLoanCard)}
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">
+              Quitados <span className="text-sm font-normal text-muted-foreground">({closedLoans.length})</span>
+            </h2>
+            {closedLoans.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum empréstimo quitado.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {closedLoans.map(renderLoanCard)}
+              </div>
+            )}
+          </section>
         </div>
       )}
 
