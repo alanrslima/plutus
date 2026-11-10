@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Plus,
   Filter,
@@ -83,16 +84,39 @@ function getMonthBounds(year: number, month: number) {
   };
 }
 
-export default function TransactionsPage() {
+const transactionTypes: TransactionType[] = ["income", "expense", "transfer"];
+
+interface Filters {
+  type?: TransactionType;
+  accountId?: string;
+  categoryId?: string;
+}
+
+function parseMonth(value: string | null) {
+  const match = value?.match(/^(\d{4})-(\d{2})$/);
+  if (match) {
+    const month = Number(match[2]);
+    if (month >= 1 && month <= 12) return { year: Number(match[1]), month };
+  }
   const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState({
-    year: now.getFullYear(),
-    month: now.getMonth() + 1,
-  });
-  const [typeFilter, setTypeFilter] = useState<TransactionType | undefined>();
-  const [accountFilter, setAccountFilter] = useState<string | undefined>();
-  const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
-  const [showFilters, setShowFilters] = useState(false);
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+}
+
+export default function TransactionsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedMonth = parseMonth(searchParams.get("month"));
+  const typeParam = searchParams.get("type");
+  const filters: Filters = {
+    type: transactionTypes.includes(typeParam as TransactionType)
+      ? (typeParam as TransactionType)
+      : undefined,
+    accountId: searchParams.get("accountId") ?? undefined,
+    categoryId: searchParams.get("categoryId") ?? undefined,
+  };
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<Filters>({});
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [referencedParent, setReferencedParent] = useState<Transaction | null>(
@@ -105,9 +129,7 @@ export default function TransactionsPage() {
     selectedMonth.month,
   );
   const { data: transactions = [], isLoading } = useTransactions({
-    type: typeFilter,
-    accountId: accountFilter,
-    categoryId: categoryFilter,
+    ...filters,
     startDate,
     endDate,
   });
@@ -138,6 +160,31 @@ export default function TransactionsPage() {
   const selectedCategoryId = watch("categoryId");
   const selectedDestinationAccountId = watch("destinationAccountId");
   const amountValue = watch("amount");
+
+  function setMonth(value: { year: number; month: number }) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("month", `${value.year}-${String(value.month).padStart(2, "0")}`);
+      return next;
+    });
+  }
+
+  function applyFilters(value: Filters) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      (["type", "accountId", "categoryId"] as const).forEach((key) => {
+        const v = value[key];
+        if (v) next.set(key, v);
+        else next.delete(key);
+      });
+      return next;
+    });
+  }
+
+  function openFilters() {
+    setDraftFilters(filters);
+    setFiltersOpen(true);
+  }
 
   function openCreate(parent?: Transaction) {
     setEditing(null);
@@ -406,16 +453,20 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="sticky top-0 z-20 -mx-6 -mt-6 px-6 py-4 bg-background/95 backdrop-blur border-b flex items-center justify-between">
         <h1 className="text-2xl font-bold">Transações</h1>
         <div className="flex gap-2">
           <Button
             variant="outline"
-            size="sm"
             className="gap-2"
-            onClick={() => setShowFilters(!showFilters)}
+            onClick={openFilters}
           >
             <Filter className="h-4 w-4" /> Filtros
+            {activeFilterCount > 0 && (
+              <span className="rounded-full bg-primary text-primary-foreground text-xs px-1.5 min-w-[1.25rem]">
+                {activeFilterCount}
+              </span>
+            )}
           </Button>
           <Button onClick={() => openCreate()} className="gap-2">
             <Plus className="h-4 w-4" /> Nova Transação
@@ -425,101 +476,8 @@ export default function TransactionsPage() {
 
       {/* Month selector */}
       <div className="flex items-center justify-between">
-        <MonthSelector value={selectedMonth} onChange={setSelectedMonth} />
+        <MonthSelector value={selectedMonth} onChange={setMonth} />
       </div>
-
-      {showFilters && (
-        <Card>
-          <CardContent className="pt-4 flex gap-4 flex-wrap">
-            <div className="flex-1 min-w-[150px] space-y-1">
-              <Label>Tipo</Label>
-              <Select
-                value={typeFilter ?? "__none__"}
-                onValueChange={(v) =>
-                  setTypeFilter(
-                    v === "__none__" ? undefined : (v as TransactionType),
-                  )
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Todos</SelectItem>
-                  <SelectItem value="income">Receita</SelectItem>
-                  <SelectItem value="expense">Despesa</SelectItem>
-                  <SelectItem value="transfer">Transferência</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1 min-w-[150px] space-y-1">
-              <Label>Conta</Label>
-              <Select
-                value={accountFilter ?? "__none__"}
-                onValueChange={(v) =>
-                  setAccountFilter(v === "__none__" ? undefined : v)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Todas</SelectItem>
-                  {accounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1 min-w-[150px] space-y-1">
-              <Label>Categoria</Label>
-              <Select
-                value={categoryFilter ?? "__none__"}
-                onValueChange={(v) =>
-                  setCategoryFilter(v === "__none__" ? undefined : v)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Todas</SelectItem>
-                  {categories
-                    .filter((c) => !typeFilter || c.type === typeFilter)
-                    .map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        <span className="flex items-center gap-2">
-                          {c.color && (
-                            <span
-                              className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
-                              style={{ backgroundColor: c.color }}
-                            />
-                          )}
-                          {c.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setTypeFilter(undefined);
-                  setAccountFilter(undefined);
-                  setCategoryFilter(undefined);
-                }}
-              >
-                Limpar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>
@@ -609,6 +567,130 @@ export default function TransactionsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Filtros</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Tipo</Label>
+              <Select
+                value={draftFilters.type ?? "__none__"}
+                onValueChange={(v) =>
+                  setDraftFilters((prev) => {
+                    const type =
+                      v === "__none__" ? undefined : (v as TransactionType);
+                    const category = categories.find(
+                      (c) => c.id === prev.categoryId,
+                    );
+                    return {
+                      ...prev,
+                      type,
+                      categoryId:
+                        type && category && category.type !== type
+                          ? undefined
+                          : prev.categoryId,
+                    };
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Todos</SelectItem>
+                  <SelectItem value="income">Receita</SelectItem>
+                  <SelectItem value="expense">Despesa</SelectItem>
+                  <SelectItem value="transfer">Transferência</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Conta</Label>
+              <Select
+                value={draftFilters.accountId ?? "__none__"}
+                onValueChange={(v) =>
+                  setDraftFilters((prev) => ({
+                    ...prev,
+                    accountId: v === "__none__" ? undefined : v,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Todas</SelectItem>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Categoria</Label>
+              <Select
+                value={draftFilters.categoryId ?? "__none__"}
+                onValueChange={(v) =>
+                  setDraftFilters((prev) => ({
+                    ...prev,
+                    categoryId: v === "__none__" ? undefined : v,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Todas</SelectItem>
+                  {categories
+                    .filter(
+                      (c) => !draftFilters.type || c.type === draftFilters.type,
+                    )
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <span className="flex items-center gap-2">
+                          {c.color && (
+                            <span
+                              className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: c.color }}
+                            />
+                          )}
+                          {c.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                applyFilters({});
+                setFiltersOpen(false);
+              }}
+            >
+              Limpar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                applyFilters(draftFilters);
+                setFiltersOpen(false);
+              }}
+            >
+              Aplicar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
