@@ -1,4 +1,4 @@
-import { ILoanRepository, CreateLoanData, InstallmentInput } from '../../../domain/repositories/ILoanRepository'
+import { ILoanRepository, CreateLoanData, InstallmentInput, LoanInstallmentWithLoan } from '../../../domain/repositories/ILoanRepository'
 import { Loan, LoanStatus } from '../../../domain/entities/Loan'
 import { LoanInstallment } from '../../../domain/entities/LoanInstallment'
 import { prisma } from '../prisma'
@@ -111,5 +111,22 @@ export class PrismaLoanRepository implements ILoanRepository {
       data: { paid, paidAt: paid ? new Date() : null },
     })
     return toInstallment(installment)
+  }
+
+  async findInstallmentsByUserInRange(userId: string, start: Date, end: Date): Promise<LoanInstallmentWithLoan[]> {
+    const installments = await prisma.loanInstallment.findMany({
+      where: {
+        dueDate: { gte: start, lt: end },
+        loan: { userId, status: { not: 'cancelled' } },
+      },
+      include: { loan: { select: { name: true, status: true, installmentsCount: true } } },
+      orderBy: { dueDate: 'asc' },
+    })
+    return installments.map(i => ({
+      ...toInstallment(i),
+      loanName: i.loan.name,
+      loanStatus: i.loan.status as LoanStatus,
+      installmentsCount: i.loan.installmentsCount,
+    }))
   }
 }

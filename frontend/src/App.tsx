@@ -16,6 +16,7 @@ import ProfilePage from '@/pages/profile/ProfilePage'
 import LoansPage from '@/pages/loans/LoansPage'
 import LoanDetailPage from '@/pages/loans/LoanDetailPage'
 import BudgetsPage from '@/pages/budgets/BudgetsPage'
+import CommitmentPage from '@/pages/commitment/CommitmentPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -39,6 +40,7 @@ function AppRoutes() {
         <Route path="/transactions" element={<TransactionsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/budgets" element={<BudgetsPage />} />
+        <Route path="/commitment" element={<CommitmentPage />} />
         <Route path="/loans" element={<LoansPage />} />
         <Route path="/loans/:id" element={<LoanDetailPage />} />
         <Route path="/import" element={<ImportPage />} />

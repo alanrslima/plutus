@@ -39,7 +39,10 @@ export function useCreateLoan() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: CreateLoanData) => api.post('/loans', data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['loans'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['loans'] })
+      qc.invalidateQueries({ queryKey: ['reports', 'commitment'] })
+    },
   })
 }
 
@@ -50,6 +53,7 @@ export function useUpdateLoan() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['loans'] })
       qc.invalidateQueries({ queryKey: ['loans', id] })
+      qc.invalidateQueries({ queryKey: ['reports', 'commitment'] })
     },
   })
 }
@@ -58,7 +62,10 @@ export function useDeleteLoan() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete(`/loans/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['loans'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['loans'] })
+      qc.invalidateQueries({ queryKey: ['reports', 'commitment'] })
+    },
   })
 }
 
@@ -66,7 +73,10 @@ export function usePayInstallment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (installmentId: string) => api.patch(`/loans/installments/${installmentId}/pay`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['loans'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['loans'] })
+      qc.invalidateQueries({ queryKey: ['reports', 'commitment'] })
+    },
   })
 }
 
@@ -74,6 +84,9 @@ export function useUnpayInstallment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (installmentId: string) => api.patch(`/loans/installments/${installmentId}/unpay`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['loans'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['loans'] })
+      qc.invalidateQueries({ queryKey: ['reports', 'commitment'] })
+    },
   })
 }

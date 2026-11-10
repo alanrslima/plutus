@@ -1,12 +1,21 @@
 import { Response, NextFunction } from 'express'
+import { z } from 'zod'
 import { AuthRequest } from '../middlewares/authMiddleware'
 import { ReportsUseCase } from '../../application/use-cases/reports/ReportsUseCase'
 import { PrismaTransactionRepository } from '../../infra/database/repositories/PrismaTransactionRepository'
 import { PrismaAccountRepository } from '../../infra/database/repositories/PrismaAccountRepository'
+import { PrismaLoanRepository } from '../../infra/database/repositories/PrismaLoanRepository'
+import { CommitmentUseCase } from '../../application/use-cases/commitment/CommitmentUseCase'
 
 const transactionRepo = new PrismaTransactionRepository()
 const accountRepo = new PrismaAccountRepository()
+const loanRepo = new PrismaLoanRepository()
 const useCase = new ReportsUseCase(transactionRepo, accountRepo)
+const commitmentUseCase = new CommitmentUseCase(transactionRepo, loanRepo)
+
+const commitmentSchema = z.object({
+  months: z.coerce.number().int().min(1).max(36).default(12),
+})
 
 export class ReportsController {
   async monthlySummary(req: AuthRequest, res: Response, next: NextFunction) {
@@ -67,6 +76,14 @@ export class ReportsController {
     try {
       const date = req.query.date ? new Date(req.query.date as string) : new Date()
       const result = await useCase.getBalanceAsOfDate(req.userId!, date)
+      res.json(result)
+    } catch (err) { next(err) }
+  }
+
+  async commitment(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { months } = commitmentSchema.parse(req.query)
+      const result = await commitmentUseCase.getCommitment(req.userId!, months)
       res.json(result)
     } catch (err) { next(err) }
   }

@@ -3,6 +3,11 @@ import { LoanInstallment } from '../entities/LoanInstallment'
 
 export type CreateLoanData = Omit<Loan, 'id' | 'createdAt' | 'status'> & { status?: LoanStatus }
 export type InstallmentInput = { number: number; dueDate: Date; amount: number }
+export type LoanInstallmentWithLoan = LoanInstallment & {
+  loanName: string
+  loanStatus: LoanStatus
+  installmentsCount: number
+}
 
 export interface ILoanRepository {
   findById(id: string, userId: string): Promise<Loan | null>
@@ -14,4 +19,6 @@ export interface ILoanRepository {
   findInstallmentsByLoanId(loanId: string): Promise<LoanInstallment[]>
   findInstallmentByIdForUser(installmentId: string, userId: string): Promise<LoanInstallment | null>
   setInstallmentPaid(installmentId: string, paid: boolean): Promise<LoanInstallment>
+  /** Installments of the user's non-cancelled loans with dueDate in [start, end). */
+  findInstallmentsByUserInRange(userId: string, start: Date, end: Date): Promise<LoanInstallmentWithLoan[]>
 }

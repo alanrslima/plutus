@@ -1,6 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../services/api'
-import { MonthlySummary, CategorySummary, AccountSummary, CategoryTrendItem, DailySummary, CumulativeSummary, BalanceAsOfDate } from '../types'
+import { MonthlySummary, CategorySummary, AccountSummary, CategoryTrendItem, DailySummary, CumulativeSummary, BalanceAsOfDate, CommitmentReport } from '../types'
+
+export function useCommitment(months: number) {
+  return useQuery<CommitmentReport>({
+    queryKey: ['reports', 'commitment', months],
+    queryFn: async () => (await api.get('/reports/commitment', { params: { months } })).data,
+  })
+}
 
 export function useMonthlySummary(year: number, month?: number) {
   return useQuery<MonthlySummary[]>({

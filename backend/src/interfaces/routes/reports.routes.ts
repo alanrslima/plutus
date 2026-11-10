@@ -13,5 +13,6 @@ router.get('/summary/account', (req, res, next) => controller.accountSummary(req
 router.get('/summary/daily', (req, res, next) => controller.dailySummary(req as any, res, next))
 router.get('/summary/cumulative', (req, res, next) => controller.cumulativeSummary(req as any, res, next))
 router.get('/summary/balance', (req, res, next) => controller.balanceAsOfDate(req as any, res, next))
+router.get('/commitment', (req, res, next) => controller.commitment(req as any, res, next))
 
 export default router

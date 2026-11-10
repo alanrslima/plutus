@@ -89,6 +89,42 @@ export interface BalanceAsOfDate {
   balance: number
 }
 
+// Income commitment
+export type CommitmentSource = 'installment' | 'expense' | 'loan'
+
+export interface CommitmentItem {
+  id: string
+  source: CommitmentSource
+  description: string
+  amount: number
+  date: string
+  installment?: number
+  totalInstallments?: number
+  categoryName?: string
+  categoryColor?: string
+  paid?: boolean
+}
+
+export interface CommitmentMonth {
+  month: string
+  scheduledIncome: number
+  income: number
+  installmentExpenses: number
+  otherExpenses: number
+  loanInstallments: number
+  totalCommitted: number
+  free: number
+  percentage: number
+  items: CommitmentItem[]
+}
+
+export interface CommitmentReport {
+  referenceIncome: number
+  referenceMonths: number
+  months: CommitmentMonth[]
+  lastCommitmentMonth: string | null
+}
+
 // Import
 export type FileType = 'OFX' | 'CSV'
 export type ImportStatus = 'SUCCESS' | 'PARTIAL' | 'FAILED'
