@@ -10,7 +10,8 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "db:seed": "ts-node prisma/seed.ts"
+    "db:seed": "ts-node prisma/seed.ts",
+    "db:backup": "bash scripts/db-backup.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",
