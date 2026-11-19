@@ -1,12 +1,13 @@
 import { ILoanRepository, CreateLoanData, InstallmentInput, LoanInstallmentWithLoan } from '../../../domain/repositories/ILoanRepository'
-import { Loan, LoanStatus } from '../../../domain/entities/Loan'
+import { Loan, LoanStatus, AmortizationType } from '../../../domain/entities/Loan'
 import { LoanInstallment } from '../../../domain/entities/LoanInstallment'
 import { prisma } from '../prisma'
 
 function toLoan(raw: {
   id: string; userId: string; name: string; lender: string | null
   amountReceived: { toNumber: () => number }; totalAmount: { toNumber: () => number }
-  installmentsCount: number; startDate: Date; firstDueDate: Date
+  installmentsCount: number; amortizationType: string; interestRate: { toNumber: () => number } | null
+  startDate: Date; firstDueDate: Date
   status: string; notes: string | null; createdAt: Date
 }): Loan {
   return {
@@ -17,6 +18,8 @@ function toLoan(raw: {
     amountReceived: raw.amountReceived.toNumber(),
     totalAmount: raw.totalAmount.toNumber(),
     installmentsCount: raw.installmentsCount,
+    amortizationType: raw.amortizationType as AmortizationType,
+    interestRate: raw.interestRate?.toNumber(),
     startDate: raw.startDate,
     firstDueDate: raw.firstDueDate,
     status: raw.status as LoanStatus,
@@ -60,6 +63,8 @@ export class PrismaLoanRepository implements ILoanRepository {
         amountReceived: data.amountReceived,
         totalAmount: data.totalAmount,
         installmentsCount: data.installmentsCount,
+        amortizationType: data.amortizationType,
+        interestRate: data.interestRate ?? null,
         startDate: data.startDate,
         firstDueDate: data.firstDueDate,
         status: data.status ?? 'active',
@@ -75,7 +80,7 @@ export class PrismaLoanRepository implements ILoanRepository {
   async update(
     id: string,
     userId: string,
-    data: Partial<Pick<Loan, 'name' | 'lender' | 'notes' | 'status'>>,
+    data: Partial<Pick<Loan, 'name' | 'lender' | 'notes' | 'status' | 'totalAmount'>>,
   ): Promise<Loan> {
     const loan = await prisma.loan.update({
       where: { id },
@@ -84,6 +89,7 @@ export class PrismaLoanRepository implements ILoanRepository {
         lender: data.lender,
         notes: data.notes,
         status: data.status,
+        totalAmount: data.totalAmount,
       },
     })
     return toLoan(loan)
@@ -109,6 +115,17 @@ export class PrismaLoanRepository implements ILoanRepository {
     const installment = await prisma.loanInstallment.update({
       where: { id: installmentId },
       data: { paid, paidAt: paid ? new Date() : null },
+    })
+    return toInstallment(installment)
+  }
+
+  async updateInstallment(
+    installmentId: string,
+    data: Partial<Pick<LoanInstallment, 'amount' | 'dueDate'>>,
+  ): Promise<LoanInstallment> {
+    const installment = await prisma.loanInstallment.update({
+      where: { id: installmentId },
+      data: { amount: data.amount, dueDate: data.dueDate },
     })
     return toInstallment(installment)
   }

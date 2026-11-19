@@ -7,22 +7,39 @@ import { PrismaLoanRepository } from '../../infra/database/repositories/PrismaLo
 const loanRepo = new PrismaLoanRepository()
 const useCase = new LoanUseCase(loanRepo)
 
-const createSchema = z.object({
+const createBaseSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
   lender: z.string().optional(),
   amountReceived: z.number().positive(),
-  totalAmount: z.number().positive(),
   installmentsCount: z.number().int().min(1),
   startDate: z.string(),
   firstDueDate: z.string(),
   notes: z.string().optional(),
 })
 
+const createSchema = z.preprocess(
+  // amortizationType is optional for backwards compatibility — absent means "fixed"
+  body => (body && typeof body === 'object' && !('amortizationType' in body) ? { ...body, amortizationType: 'fixed' } : body),
+  z.discriminatedUnion('amortizationType', [
+    createBaseSchema.extend({ amortizationType: z.literal('fixed'), totalAmount: z.number().positive() }),
+    createBaseSchema.extend({
+      amortizationType: z.enum(['sac', 'price']),
+      /** Monthly rate as a fraction: 0.01 = 1% a.m. */
+      interestRate: z.number().min(0).max(1),
+    }),
+  ]),
+)
+
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
   lender: z.string().optional(),
   notes: z.string().optional(),
   status: z.enum(['active', 'paid', 'cancelled']).optional(),
+})
+
+const updateInstallmentSchema = z.object({
+  amount: z.number().positive().optional(),
+  dueDate: z.string().optional(),
 })
 
 export class LoansController {
@@ -64,6 +81,17 @@ export class LoansController {
     try {
       await useCase.delete(req.params.id, req.userId!)
       res.status(204).send()
+    } catch (err) { next(err) }
+  }
+
+  updateInstallment = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const data = updateInstallmentSchema.parse(req.body)
+      const loan = await useCase.updateInstallment(req.params.installmentId, req.userId!, {
+        amount: data.amount,
+        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+      })
+      res.json(loan)
     } catch (err) { next(err) }
   }
 

@@ -126,7 +126,7 @@ HTTP status guide:
 > - Use `401` for unauthenticated requests on auth endpoints (correct HTTP semantics, interceptor ignores it).
 > - Use `422` when the user IS authenticated via JWT but a domain rule fails (e.g. wrong current password) — keeps semantics clear and also avoids the redirect.
 
-The `errorHandler` middleware has two branches only: `AppError` (uses `err.status`) and everything else (logs + returns 500). Never add a known-messages list back.
+The `errorHandler` middleware has three branches only: `AppError` (uses `err.status`), `ZodError` (returns 400 with `message` from the first issue plus an `issues` array), and everything else (logs + returns 500). Never add a known-messages list back.
 
 ---
 

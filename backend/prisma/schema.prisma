@@ -202,6 +202,9 @@ model Loan {
   amountReceived Decimal    @db.Decimal(15, 2) @map("amount_received")
   totalAmount    Decimal    @db.Decimal(15, 2) @map("total_amount")
   installmentsCount Int     @map("installments_count")
+  amortizationType AmortizationType @default(fixed) @map("amortization_type")
+  /// Contractual monthly rate as a fraction (0.01 = 1% a.m.). Only set for sac/price.
+  interestRate   Decimal?   @db.Decimal(10, 8) @map("interest_rate")
   startDate      DateTime   @map("start_date")
   firstDueDate   DateTime   @map("first_due_date")
   status         LoanStatus @default(active)
@@ -227,6 +230,12 @@ model LoanInstallment {
 
   @@unique([loanId, number])
   @@map("loan_installments")
+}
+
+enum AmortizationType {
+  fixed
+  sac
+  price
 }
 
 enum LoanStatus {

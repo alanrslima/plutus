@@ -218,6 +218,7 @@ export interface Budget {
 
 // Loans
 export type LoanStatus = 'active' | 'paid' | 'cancelled'
+export type AmortizationType = 'fixed' | 'sac' | 'price'
 
 export interface LoanInstallment {
   id: string
@@ -239,6 +240,9 @@ export interface Loan {
   amountReceived: number
   totalAmount: number
   installmentsCount: number
+  amortizationType: AmortizationType
+  /** Contractual monthly rate as a fraction (sac/price only) */
+  interestRate?: number
   startDate: string
   firstDueDate: string
   status: LoanStatus

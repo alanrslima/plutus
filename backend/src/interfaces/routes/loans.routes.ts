@@ -7,6 +7,7 @@ const controller = new LoansController()
 
 router.get('/', authMiddleware, (req, res, next) => controller.list(req as any, res, next))
 router.post('/', authMiddleware, (req, res, next) => controller.create(req as any, res, next))
+router.patch('/installments/:installmentId', authMiddleware, (req, res, next) => controller.updateInstallment(req as any, res, next))
 router.patch('/installments/:installmentId/pay', authMiddleware, (req, res, next) => controller.payInstallment(req as any, res, next))
 router.patch('/installments/:installmentId/unpay', authMiddleware, (req, res, next) => controller.unpayInstallment(req as any, res, next))
 router.get('/:id', authMiddleware, (req, res, next) => controller.getById(req as any, res, next))
