@@ -169,13 +169,18 @@ export default function CommitmentPage() {
   const [expanded, setExpanded] = useState<string | null>(null)
   const { data, isLoading } = useCommitment(months)
 
+  // Zero stays a custom value while typing, so clearing the field doesn't snap back to the automatic average
   function changeIncome(value: number) {
-    const next = value > 0 ? value : null
-    setCustomIncome(next)
+    setCustomIncome(value)
     try {
-      if (next) localStorage.setItem(INCOME_STORAGE_KEY, String(next))
+      if (value > 0) localStorage.setItem(INCOME_STORAGE_KEY, String(value))
       else localStorage.removeItem(INCOME_STORAGE_KEY)
     } catch { /* storage unavailable: keep in memory only */ }
+  }
+
+  function resetIncome() {
+    setCustomIncome(null)
+    try { localStorage.removeItem(INCOME_STORAGE_KEY) } catch { /* storage unavailable */ }
   }
 
   const baseIncome = customIncome ?? data?.referenceIncome ?? 0
@@ -223,11 +228,17 @@ export default function CommitmentPage() {
             <Label className="text-xs">Renda mensal considerada</Label>
             <div className="flex items-center gap-1">
               <CurrencyInput value={baseIncome} onChange={changeIncome} className="w-40" />
-              {customIncome !== null && (
-                <Button variant="ghost" size="icon" className="h-9 w-9" title="Voltar para a média automática" onClick={() => changeIncome(0)}>
-                  <RotateCcw className="h-4 w-4" />
-                </Button>
-              )}
+              {/* Always rendered (hidden when unused) so the layout doesn't shift while typing */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn('h-9 w-9', customIncome === null && 'invisible')}
+                title="Voltar para a média automática"
+                onClick={resetIncome}
+                tabIndex={customIncome === null ? -1 : undefined}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
             </div>
           </div>
           <div className="space-y-1">
