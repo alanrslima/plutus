@@ -1,16 +1,74 @@
 export type GeneratedInstallment = { number: number; dueDate: Date; amount: number }
 
+const round2 = (value: number) => Math.round(value * 100) / 100
+
+function dueDateFor(firstDueDate: Date, number: number): Date {
+  const dueDate = new Date(firstDueDate)
+  dueDate.setMonth(dueDate.getMonth() + (number - 1))
+  return dueDate
+}
+
 export function generateInstallments(totalAmount: number, count: number, firstDueDate: Date): GeneratedInstallment[] {
   const base = Math.floor((totalAmount / count) * 100) / 100
   const installments: GeneratedInstallment[] = []
   let accumulated = 0
 
   for (let i = 1; i <= count; i++) {
-    const dueDate = new Date(firstDueDate)
-    dueDate.setMonth(dueDate.getMonth() + (i - 1))
-    const amount = i < count ? base : Math.round((totalAmount - accumulated) * 100) / 100
+    const amount = i < count ? base : round2(totalAmount - accumulated)
     accumulated += amount
-    installments.push({ number: i, dueDate, amount })
+    installments.push({ number: i, dueDate: dueDateFor(firstDueDate, i), amount })
+  }
+
+  return installments
+}
+
+/**
+ * SAC (Sistema de Amortização Constante): amortization is fixed at principal / n and
+ * interest is charged on the outstanding balance, so installments decrease over time.
+ * The last installment amortizes whatever balance is left, absorbing rounding.
+ */
+export function generateSacInstallments(
+  principal: number,
+  monthlyRate: number,
+  count: number,
+  firstDueDate: Date,
+): GeneratedInstallment[] {
+  const amortization = Math.floor((principal / count) * 100) / 100
+  const installments: GeneratedInstallment[] = []
+  let balance = principal
+
+  for (let i = 1; i <= count; i++) {
+    const interest = round2(balance * monthlyRate)
+    const principalPart = i < count ? amortization : round2(balance)
+    balance = round2(balance - principalPart)
+    installments.push({ number: i, dueDate: dueDateFor(firstDueDate, i), amount: round2(principalPart + interest) })
+  }
+
+  return installments
+}
+
+/**
+ * Price (Tabela Price / French amortization): constant installment
+ * PMT = P·i / (1 − (1+i)^−n). Interest on the outstanding balance shrinks while the
+ * amortization grows. The last installment pays off the remaining balance exactly.
+ */
+export function generatePriceInstallments(
+  principal: number,
+  monthlyRate: number,
+  count: number,
+  firstDueDate: Date,
+): GeneratedInstallment[] {
+  if (monthlyRate === 0) return generateInstallments(principal, count, firstDueDate)
+
+  const pmt = round2((principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -count)))
+  const installments: GeneratedInstallment[] = []
+  let balance = principal
+
+  for (let i = 1; i <= count; i++) {
+    const interest = round2(balance * monthlyRate)
+    const amount = i < count ? pmt : round2(balance + interest)
+    balance = round2(balance - (amount - interest))
+    installments.push({ number: i, dueDate: dueDateFor(firstDueDate, i), amount })
   }
 
   return installments

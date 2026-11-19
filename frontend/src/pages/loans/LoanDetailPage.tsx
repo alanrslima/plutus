@@ -1,13 +1,33 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, Circle, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Circle, AlertTriangle, Pencil } from 'lucide-react'
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts'
-import { useLoan, usePayInstallment, useUnpayInstallment } from '@/hooks/useLoans'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { useLoan, usePayInstallment, useUnpayInstallment, useUpdateInstallment } from '@/hooks/useLoans'
 import { useToast } from '@/hooks/useToast'
-import { LoanStatus } from '@/types'
+import { AmortizationType, LoanInstallment, LoanStatus } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { formatCurrency, formatDate, cn } from '@/lib/utils'
+
+const installmentSchema = z.object({
+  amount: z.number().positive('Informe o valor da parcela'),
+  dueDate: z.string().min(1, 'Data obrigatória'),
+})
+type InstallmentFormData = z.infer<typeof installmentSchema>
+
+const AMORTIZATION_LABEL: Record<AmortizationType, string> = {
+  fixed: 'Parcelas fixas',
+  sac: 'SAC',
+  price: 'Tabela Price',
+}
 
 const STATUS_LABEL: Record<LoanStatus, string> = { active: 'Ativo', paid: 'Quitado', cancelled: 'Cancelado' }
 const STATUS_VARIANT: Record<LoanStatus, 'outline' | 'income' | 'secondary'> = {
@@ -22,7 +42,31 @@ export default function LoanDetailPage() {
   const { data: loan, isLoading } = useLoan(id)
   const payInstallment = usePayInstallment()
   const unpayInstallment = useUnpayInstallment()
+  const updateInstallment = useUpdateInstallment()
   const { toast } = useToast()
+
+  const [editingInstallment, setEditingInstallment] = useState<LoanInstallment | null>(null)
+  const installmentForm = useForm<InstallmentFormData>({
+    resolver: zodResolver(installmentSchema),
+    defaultValues: { amount: 0, dueDate: '' },
+  })
+
+  function openEditInstallment(installment: LoanInstallment) {
+    installmentForm.reset({ amount: installment.amount, dueDate: installment.dueDate.slice(0, 10) })
+    setEditingInstallment(installment)
+  }
+
+  async function onEditInstallment(data: InstallmentFormData) {
+    if (!editingInstallment) return
+    try {
+      await updateInstallment.mutateAsync({ installmentId: editingInstallment.id, ...data })
+      toast({ title: 'Parcela atualizada' })
+      setEditingInstallment(null)
+    } catch (err) {
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast({ variant: 'destructive', title: 'Erro', description: message ?? 'Não foi possível atualizar a parcela' })
+    }
+  }
 
   async function togglePaid(installmentId: string, paid: boolean) {
     try {
@@ -66,7 +110,9 @@ export default function LoanDetailPage() {
             <h1 className="text-2xl font-bold">{loan.name}</h1>
             <Badge variant={STATUS_VARIANT[loan.status]}>{STATUS_LABEL[loan.status]}</Badge>
           </div>
-          {loan.lender && <p className="text-sm text-muted-foreground">{loan.lender}</p>}
+          <p className="text-sm text-muted-foreground">
+            {[loan.lender, AMORTIZATION_LABEL[loan.amortizationType]].filter(Boolean).join(' · ')}
+          </p>
         </div>
       </div>
 
@@ -91,6 +137,11 @@ export default function LoanDetailPage() {
           <CardContent>
             <p className="text-xl font-bold">{(loan.monthlyInterestRate * 100).toFixed(2)}% a.m.</p>
             <p className="text-xs text-muted-foreground">{(loan.annualInterestRate * 100).toFixed(2)}% a.a. (equivalente)</p>
+            {loan.interestRate !== undefined && Math.abs(loan.interestRate - loan.monthlyInterestRate) > 0.00001 && (
+              <p className="text-xs text-muted-foreground">
+                Contratual: {(loan.interestRate * 100).toFixed(4)}% a.m. — a taxa efetiva inclui os ajustes nas parcelas
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -159,7 +210,16 @@ export default function LoanDetailPage() {
                             <Badge variant="outline" className="gap-1"><Circle className="h-3 w-3" /> Pendente</Badge>
                           )}
                         </td>
-                        <td className="px-6 py-2.5 text-right">
+                        <td className="px-6 py-2.5 text-right whitespace-nowrap">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Editar parcela"
+                            onClick={() => openEditInstallment(installment)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -178,6 +238,47 @@ export default function LoanDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!editingInstallment} onOpenChange={open => !open && setEditingInstallment(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar parcela {editingInstallment?.number}/{loan.installmentsCount}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={installmentForm.handleSubmit(onEditInstallment)}>
+            <div className="space-y-4 py-4">
+              <p className="text-xs text-muted-foreground">
+                Use para refletir o valor real do boleto (seguros, taxas, correção). O total, a taxa efetiva e a
+                divisão entre capital e juros são recalculados.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Valor</Label>
+                  <CurrencyInput
+                    value={installmentForm.watch('amount') ?? 0}
+                    onChange={v => installmentForm.setValue('amount', v, { shouldValidate: true })}
+                  />
+                  {installmentForm.formState.errors.amount && (
+                    <p className="text-xs text-destructive">{installmentForm.formState.errors.amount.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Vencimento</Label>
+                  <Input type="date" {...installmentForm.register('dueDate')} />
+                  {installmentForm.formState.errors.dueDate && (
+                    <p className="text-xs text-destructive">{installmentForm.formState.errors.dueDate.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingInstallment(null)}>Cancelar</Button>
+              <Button type="submit" disabled={installmentForm.formState.isSubmitting}>
+                {installmentForm.formState.isSubmitting ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

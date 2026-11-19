@@ -13,12 +13,13 @@ export interface ILoanRepository {
   findById(id: string, userId: string): Promise<Loan | null>
   findAllByUser(userId: string): Promise<Loan[]>
   create(data: CreateLoanData, installments: InstallmentInput[]): Promise<Loan>
-  update(id: string, userId: string, data: Partial<Pick<Loan, 'name' | 'lender' | 'notes' | 'status'>>): Promise<Loan>
+  update(id: string, userId: string, data: Partial<Pick<Loan, 'name' | 'lender' | 'notes' | 'status' | 'totalAmount'>>): Promise<Loan>
   delete(id: string, userId: string): Promise<void>
 
   findInstallmentsByLoanId(loanId: string): Promise<LoanInstallment[]>
   findInstallmentByIdForUser(installmentId: string, userId: string): Promise<LoanInstallment | null>
   setInstallmentPaid(installmentId: string, paid: boolean): Promise<LoanInstallment>
+  updateInstallment(installmentId: string, data: Partial<Pick<LoanInstallment, 'amount' | 'dueDate'>>): Promise<LoanInstallment>
   /** Installments of the user's non-cancelled loans with dueDate in [start, end). */
   findInstallmentsByUserInRange(userId: string, start: Date, end: Date): Promise<LoanInstallmentWithLoan[]>
 }

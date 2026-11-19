@@ -2,15 +2,24 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 import { Loan, LoanStatus } from '../types'
 
-export type CreateLoanData = {
+type CreateLoanBase = {
   name: string
   lender?: string
   amountReceived: number
-  totalAmount: number
   installmentsCount: number
   startDate: string
   firstDueDate: string
   notes?: string
+}
+
+export type CreateLoanData =
+  | (CreateLoanBase & { amortizationType: 'fixed'; totalAmount: number })
+  /** interestRate: monthly rate as a fraction (0.01 = 1% a.m.) */
+  | (CreateLoanBase & { amortizationType: 'sac' | 'price'; interestRate: number })
+
+export type UpdateInstallmentData = {
+  amount?: number
+  dueDate?: string
 }
 
 export type UpdateLoanData = {
@@ -62,6 +71,18 @@ export function useDeleteLoan() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.delete(`/loans/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['loans'] })
+      qc.invalidateQueries({ queryKey: ['reports', 'commitment'] })
+    },
+  })
+}
+
+export function useUpdateInstallment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ installmentId, ...data }: { installmentId: string } & UpdateInstallmentData) =>
+      api.patch(`/loans/installments/${installmentId}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['loans'] })
       qc.invalidateQueries({ queryKey: ['reports', 'commitment'] })

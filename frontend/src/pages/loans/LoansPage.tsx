@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useLoans, useCreateLoan, useUpdateLoan, useDeleteLoan } from '@/hooks/useLoans'
 import { useToast } from '@/hooks/useToast'
-import { Loan, LoanStatus } from '@/types'
+import { Loan, LoanStatus, AmortizationType } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,18 +26,71 @@ const createSchema = z
   .object({
     name: z.string().min(1, 'Nome obrigatório'),
     lender: z.string().optional(),
+    amortizationType: z.enum(['fixed', 'sac', 'price']),
     amountReceived: z.number().positive('Informe o valor recebido'),
-    totalAmount: z.number().positive('Informe o valor total a pagar'),
-    installmentsCount: z.number().int().min(1, 'Mínimo 1 parcela'),
+    totalAmount: z.number(),
+    // NaN when the input is empty; only validated for sac/price (field is hidden for fixed)
+    ratePercent: z.number().or(z.nan()),
+    ratePeriod: z.enum(['monthly', 'annual']),
+    installmentsCount: z.number({ invalid_type_error: 'Informe o nº de parcelas' }).int().min(1, 'Mínimo 1 parcela'),
     startDate: z.string().min(1, 'Data obrigatória'),
     firstDueDate: z.string().min(1, 'Data obrigatória'),
     notes: z.string().optional(),
   })
-  .refine(data => data.totalAmount >= data.amountReceived, {
-    message: 'O valor total não pode ser menor que o valor recebido',
-    path: ['totalAmount'],
+  .superRefine((data, ctx) => {
+    if (data.amortizationType === 'fixed') {
+      if (data.totalAmount <= 0) {
+        ctx.addIssue({ code: 'custom', message: 'Informe o valor total a pagar', path: ['totalAmount'] })
+      } else if (data.totalAmount < data.amountReceived) {
+        ctx.addIssue({ code: 'custom', message: 'O valor total não pode ser menor que o valor recebido', path: ['totalAmount'] })
+      }
+    } else if (Number.isNaN(data.ratePercent)) {
+      ctx.addIssue({ code: 'custom', message: 'Informe a taxa', path: ['ratePercent'] })
+    } else if (data.ratePercent < 0 || data.ratePercent > 100) {
+      ctx.addIssue({ code: 'custom', message: 'Taxa inválida', path: ['ratePercent'] })
+    }
   })
 type CreateFormData = z.infer<typeof createSchema>
+
+const CREATE_DEFAULTS: CreateFormData = {
+  name: '', lender: '', amortizationType: 'fixed', amountReceived: 0, totalAmount: 0,
+  ratePercent: 0, ratePeriod: 'annual', installmentsCount: 1, startDate: '', firstDueDate: '', notes: '',
+}
+
+const AMORTIZATION_LABEL: Record<AmortizationType, string> = {
+  fixed: 'Parcelas fixas',
+  sac: 'SAC',
+  price: 'Tabela Price',
+}
+
+const AMORTIZATION_HINT: Record<AmortizationType, string> = {
+  fixed: 'Você informa o total a pagar e ele é dividido em parcelas iguais.',
+  sac: 'Amortização constante: parcelas decrescentes. Comum em financiamento imobiliário.',
+  price: 'Parcelas iguais calculadas a partir da taxa de juros. Comum em financiamento de veículos.',
+}
+
+/** Converts the form rate (percent, monthly or effective annual) into a monthly fraction. */
+function toMonthlyRate(ratePercent: number, period: 'monthly' | 'annual'): number {
+  const rate = ratePercent / 100
+  return period === 'monthly' ? rate : Math.pow(1 + rate, 1 / 12) - 1
+}
+
+/**
+ * Client-side estimate of the schedule for the form preview only —
+ * the backend (LoanCalculator) is the source of truth for the stored installments.
+ */
+function previewSchedule(type: 'sac' | 'price', principal: number, monthlyRate: number, n: number) {
+  if (principal <= 0 || n < 1 || !Number.isFinite(monthlyRate)) return null
+  if (type === 'sac') {
+    const amortization = principal / n
+    const first = amortization + principal * monthlyRate
+    const last = amortization + amortization * monthlyRate
+    const total = principal + monthlyRate * principal * (n + 1) / 2
+    return { first, last, total }
+  }
+  const pmt = monthlyRate === 0 ? principal / n : (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -n))
+  return { first: pmt, last: pmt, total: pmt * n }
+}
 
 const editSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
@@ -68,10 +121,7 @@ export default function LoansPage() {
 
   const createForm = useForm<CreateFormData>({
     resolver: zodResolver(createSchema),
-    defaultValues: {
-      name: '', lender: '', amountReceived: 0, totalAmount: 0,
-      installmentsCount: 1, startDate: '', firstDueDate: '', notes: '',
-    },
+    defaultValues: CREATE_DEFAULTS,
   })
   const editForm = useForm<EditFormData>({
     resolver: zodResolver(editSchema),
@@ -79,10 +129,7 @@ export default function LoansPage() {
   })
 
   function openCreate() {
-    createForm.reset({
-      name: '', lender: '', amountReceived: 0, totalAmount: 0,
-      installmentsCount: 1, startDate: '', firstDueDate: '', notes: '',
-    })
+    createForm.reset(CREATE_DEFAULTS)
     setCreateOpen(true)
   }
 
@@ -92,8 +139,13 @@ export default function LoansPage() {
   }
 
   async function onCreate(data: CreateFormData) {
+    const { amortizationType, totalAmount, ratePercent, ratePeriod, ...base } = data
     try {
-      await createLoan.mutateAsync(data)
+      await createLoan.mutateAsync(
+        amortizationType === 'fixed'
+          ? { ...base, amortizationType, totalAmount }
+          : { ...base, amortizationType, interestRate: toMonthlyRate(ratePercent, ratePeriod) },
+      )
       toast({ title: 'Empréstimo cadastrado' })
       setCreateOpen(false)
     } catch (err: any) {
@@ -135,7 +187,11 @@ export default function LoansPage() {
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <CardTitle className="text-base">{loan.name}</CardTitle>
-              {loan.lender && <p className="text-xs text-muted-foreground">{loan.lender}</p>}
+              <p className="text-xs text-muted-foreground">
+                {[loan.lender, loan.amortizationType !== 'fixed' && AMORTIZATION_LABEL[loan.amortizationType]]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
             </div>
             <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
               <Badge variant={STATUS_VARIANT[loan.status]}>{STATUS_LABEL[loan.status]}</Badge>
@@ -184,6 +240,21 @@ export default function LoansPage() {
       </Card>
     )
   }
+
+  const amortizationType = createForm.watch('amortizationType')
+  const watchedPrincipal = createForm.watch('amountReceived')
+  const watchedRatePercent = createForm.watch('ratePercent')
+  const watchedRatePeriod = createForm.watch('ratePeriod')
+  const watchedCount = createForm.watch('installmentsCount')
+  const preview =
+    amortizationType === 'fixed'
+      ? null
+      : previewSchedule(
+          amortizationType,
+          watchedPrincipal,
+          toMonthlyRate(watchedRatePercent, watchedRatePeriod),
+          watchedCount,
+        )
 
   const openLoans = loans.filter(l => l.status === 'active')
   // quitados first, cancelados (também encerrados) ao final
@@ -268,9 +339,24 @@ export default function LoansPage() {
                 <Label>Credor (opcional)</Label>
                 <Input placeholder="Ex: Nubank, Banco do Brasil..." {...createForm.register('lender')} />
               </div>
+              <div className="space-y-2">
+                <Label>Tipo de amortização</Label>
+                <Select
+                  value={amortizationType}
+                  onValueChange={v => createForm.setValue('amortizationType', v as AmortizationType, { shouldValidate: true })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">{AMORTIZATION_LABEL.fixed}</SelectItem>
+                    <SelectItem value="sac">{AMORTIZATION_LABEL.sac}</SelectItem>
+                    <SelectItem value="price">{AMORTIZATION_LABEL.price}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">{AMORTIZATION_HINT[amortizationType]}</p>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Valor recebido</Label>
+                  <Label>{amortizationType === 'fixed' ? 'Valor recebido' : 'Valor financiado'}</Label>
                   <CurrencyInput
                     value={createForm.watch('amountReceived') ?? 0}
                     onChange={v => createForm.setValue('amountReceived', v, { shouldValidate: true })}
@@ -279,17 +365,67 @@ export default function LoansPage() {
                     <p className="text-xs text-destructive">{createForm.formState.errors.amountReceived.message}</p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label>Valor total a pagar</Label>
-                  <CurrencyInput
-                    value={createForm.watch('totalAmount') ?? 0}
-                    onChange={v => createForm.setValue('totalAmount', v, { shouldValidate: true })}
-                  />
-                  {createForm.formState.errors.totalAmount && (
-                    <p className="text-xs text-destructive">{createForm.formState.errors.totalAmount.message}</p>
-                  )}
-                </div>
+                {amortizationType === 'fixed' ? (
+                  <div className="space-y-2">
+                    <Label>Valor total a pagar</Label>
+                    <CurrencyInput
+                      value={createForm.watch('totalAmount') ?? 0}
+                      onChange={v => createForm.setValue('totalAmount', v, { shouldValidate: true })}
+                    />
+                    {createForm.formState.errors.totalAmount && (
+                      <p className="text-xs text-destructive">{createForm.formState.errors.totalAmount.message}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Taxa de juros (%)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        min={0}
+                        className="min-w-0"
+                        {...createForm.register('ratePercent', { valueAsNumber: true })}
+                      />
+                      <Select
+                        value={createForm.watch('ratePeriod')}
+                        onValueChange={v => createForm.setValue('ratePeriod', v as 'monthly' | 'annual')}
+                      >
+                        <SelectTrigger className="w-24 shrink-0"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="annual">a.a.</SelectItem>
+                          <SelectItem value="monthly">a.m.</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {createForm.formState.errors.ratePercent && (
+                      <p className="text-xs text-destructive">{createForm.formState.errors.ratePercent.message}</p>
+                    )}
+                  </div>
+                )}
               </div>
+              {preview && (
+                <div className="rounded-md border border-border bg-muted/40 p-3 text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">1ª parcela</span>
+                    <span className="font-medium">{formatCurrency(preview.first)}</span>
+                  </div>
+                  {amortizationType === 'sac' && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Última parcela</span>
+                      <span className="font-medium">{formatCurrency(preview.last)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total estimado</span>
+                    <span className="font-medium">{formatCurrency(preview.total)}</span>
+                  </div>
+                  <p className="pt-1 text-muted-foreground">
+                    {createForm.watch('ratePeriod') === 'annual' && 'Taxa anual tratada como efetiva. '}
+                    Seguros e taxas não estão incluídos — ajuste o valor de cada parcela no detalhe do empréstimo.
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Nº de parcelas</Label>
@@ -345,7 +481,7 @@ export default function LoansPage() {
           <form onSubmit={editForm.handleSubmit(onEdit)}>
             <div className="space-y-4 py-4">
               <p className="text-xs text-muted-foreground">
-                Valores e parcelas não podem ser alterados após o cadastro. Para corrigir esses dados, exclua e recadastre o empréstimo.
+                O valor financiado, o tipo e o nº de parcelas não podem ser alterados após o cadastro. Para ajustar o valor ou o vencimento de uma parcela, use o detalhe do empréstimo.
               </p>
               <div className="space-y-2">
                 <Label>Nome</Label>
